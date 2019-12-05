@@ -12,7 +12,7 @@ lazy val commonSettings = Seq(
                         "-feature",
                         "-optimise",
                         ),
-  resolvers += "uuverifiers" at "https://logicrunch.research.it.uu.se/maven/",
+  resolvers += "uuverifiers" at "http://logicrunch.research.it.uu.se/maven/",
   libraryDependencies += "uuverifiers" %% "princess" % "2018-10-26",
 //  libraryDependencies += "uuverifiers" %% "princess" % "nightly-SNAPSHOT",
    libraryDependencies += "org.sat4j" % "org.sat4j.core" % "2.3.1",
