@@ -24,50 +24,69 @@ import strsolver.Regex2AFA
 import ap.terfor.Term
 import ap.terfor.preds.PredConj
 import ap.parser.{IConstant, ITerm, InputAbsy2Internal, Internal2InputAbsy}
-import dk.brics.automaton.{BasicAutomata, BasicOperations, RegExp, Transition, Automaton => BAutomaton, State => BState}
+import dk.brics.automaton.{
+  BasicAutomata,
+  BasicOperations,
+  RegExp,
+  Transition,
+  Automaton => BAutomaton,
+  State => BState
+}
 
-import scala.collection.JavaConversions.{asScalaIterator, iterableAsScalaIterable}
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet, LinkedHashSet => MLinkedHashSet, MultiMap => MMultiMap, Set => MSet, Stack => MStack, TreeSet => MTreeSet}
+import scala.collection.JavaConversions.{
+  asScalaIterator,
+  iterableAsScalaIterable
+}
+import scala.collection.mutable.{
+  ArrayBuffer,
+  HashMap => MHashMap,
+  HashSet => MHashSet,
+  LinkedHashSet => MLinkedHashSet,
+  MultiMap => MMultiMap,
+  Set => MSet,
+  Stack => MStack,
+  TreeSet => MTreeSet
+}
 import scala.collection.immutable.List
 import java.util.{List => JList}
 
 import scala.collection.JavaConverters._
 
 object BricsAutomaton {
-  private def toBAutomaton(aut : Automaton) : BAutomaton = aut match {
-    case that : BricsAutomaton =>
+  private def toBAutomaton(aut: Automaton): BAutomaton = aut match {
+    case that: BricsAutomaton =>
       that.underlying
-    case that : AtomicStateAutomatonAdapter[_] =>
+    case that: AtomicStateAutomatonAdapter[_] =>
       toBAutomaton(that.internalise)
     case _ =>
       throw new IllegalArgumentException
   }
 
-  def apply(c : Term, context : PredConj) : BricsAutomaton = {
+  def apply(c: Term, context: PredConj): BricsAutomaton = {
     val converter = new Regex2AFA(context)
     new BricsAutomaton(converter.buildBricsAut(c))
   }
 
-  def apply() : BricsAutomaton = new BricsAutomaton(new BAutomaton)
+  def apply(): BricsAutomaton = new BricsAutomaton(new BAutomaton)
 
   /**
-   * Build brics automaton from a regular expression in brics format
-   */
+    * Build brics automaton from a regular expression in brics format
+    */
   def apply(pattern: String): BricsAutomaton =
     new BricsAutomaton(new RegExp(pattern).toAutomaton(true))
 
   /**
-   * Build brics automaton that accepts exactly the given word
-   */
-  def fromString(str : String) : BricsAutomaton =
+    * Build brics automaton that accepts exactly the given word
+    */
+  def fromString(str: String): BricsAutomaton =
     new BricsAutomaton(BasicAutomata makeString str)
 
 //  def makeEmptyString() : BricsAutomaton =
 //    new BricsAutomaton(BasicAutomata makeEmptyString())
   /**
-   * A new automaton that accepts any string
-   */
-  def makeAnyString() : BricsAutomaton = {
+    * A new automaton that accepts any string
+    */
+  def makeAnyString(): BricsAutomaton = {
 //      new BricsAutomaton(BAutomaton.makeAnyString)
     val builder = new BricsAutomatonBuilder
     val initState = builder.getNewState
@@ -79,12 +98,11 @@ object BricsAutomaton {
 
   }
 
-
   // huzi add -------------------------------------------
   /**
     * concatenate
     */
-  def concat(auts : List[BAutomaton]) : Automaton = {
+  def concat(auts: List[BAutomaton]): Automaton = {
     val aut = BasicOperations.concatenate(auts.asJava)
     aut.minimize()
     aut.restoreInvariant
@@ -117,7 +135,7 @@ object BricsAutomaton {
   }
 
   def fullProduct(auts: Seq[BricsAutomaton]): BricsAutomaton = {
-    val head    = auts.head
+    val head = auts.head
     val builder = head.getBuilder
 
     val registers = auts.flatMap(_.registers).toList
@@ -129,7 +147,7 @@ object BricsAutomaton {
     val sMapRev = new MHashMap[List[Any], head.State]
 
     val initStates = (auts.map(_.initialState)).toList
-    sMap += initState     -> initStates
+    sMap += initState -> initStates
     sMapRev += initStates -> initState
 
     val worklist = new MStack[(head.State, List[Any])]
@@ -172,7 +190,7 @@ object BricsAutomaton {
                 case (aut, s) => aut.isAccept(s.asInstanceOf[aut.State])
               }
               builder.setAccept(nextPState, isAccept)
-              sMap += nextPState   -> nextState
+              sMap += nextPState -> nextState
               sMapRev += nextState -> nextPState
               worklist.push((nextPState, nextState))
               seenlist += nextState
@@ -183,7 +201,7 @@ object BricsAutomaton {
           }
           case _state :: ssTail => {
             val aut :: autsTail = remAuts
-            val state           = _state.asInstanceOf[aut.State]
+            val state = _state.asInstanceOf[aut.State]
 
             aut.outgoingTransitions(state) foreach {
               case (s, nextLbl) => {
@@ -308,7 +326,8 @@ object BricsTLabelOps extends TLabelOps[(Char, Char)] {
   def interval(min: Char, max: Char): (Char, Char) = (min, max)
 }
 
-class BricsTLabelEnumerator(labels: Iterator[(Char, Char)]) extends TLabelEnumerator[(Char, Char)] {
+class BricsTLabelEnumerator(labels: Iterator[(Char, Char)])
+    extends TLabelEnumerator[(Char, Char)] {
 
   /**
     * Keep track of disjoint labels for fast range lookups in
@@ -362,7 +381,7 @@ class BricsTLabelEnumerator(labels: Iterator[(Char, Char)]) extends TLabelEnumer
   private def calculateDisjointLabels(): MTreeSet[(Char, Char)] = {
     var disjoint = new MTreeSet[(Char, Char)]()
 
-    val mins  = new MTreeSet[Char]
+    val mins = new MTreeSet[Char]
     val maxes = new MTreeSet[Char]
     for ((min, max) <- labels) {
       mins += min
@@ -375,7 +394,7 @@ class BricsTLabelEnumerator(labels: Iterator[(Char, Char)]) extends TLabelEnumer
     if (!imin.hasNext)
       return disjoint
 
-    var curMin  = imin.next
+    var curMin = imin.next
     var nextMax = imax.next
     while (imin.hasNext) {
       val nextMin = imin.next
@@ -434,7 +453,7 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
 
   import BricsAutomaton.toBAutomaton
 
-  type State  = BState
+  type State = BState
   type TLabel = (Char, Char)
 
   override val LabelOps = BricsTLabelOps
@@ -452,7 +471,14 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
   /**
     * get parikh iamge of BricsAutomaton
     */
-  import ap.terfor.{Formula, Term, TerForConvenience, TermOrder, OneTerm, VariableTerm}
+  import ap.terfor.{
+    Formula,
+    Term,
+    TerForConvenience,
+    TermOrder,
+    OneTerm,
+    VariableTerm
+  }
   import scala.collection.mutable.{
     BitSet => MBitSet,
     HashMap => MHashMap,
@@ -468,12 +494,12 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
     Exploration.measure("length abstraction") {
       import TerForConvenience._
 
-      val constantSeq    = registers.map { case IConstant(c) => c }
+      val constantSeq = registers.map { case IConstant(c) => c }
       implicit val order = TermOrder.EMPTY.extend(constantSeq)
 
       // val a = registers.map(InputAbsy2Internal(_,TermOrder.EMPTY)).toSeq
 
-      val stateSeq    = states.toIndexedSeq
+      val stateSeq = states.toIndexedSeq
       val state2Index = stateSeq.iterator.zipWithIndex.toMap
 
       // preStates(to): =  [(from, (from, label, to))]
@@ -522,7 +548,7 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
         for (finalState <- acceptingStates)
           yield {
             val finalStateInd = state2Index(finalState)
-            val refStates     = transPreStates(finalStateInd)
+            val refStates = transPreStates(finalStateInd)
 
             // FIXME: remove self-loops maybe?
             // FIXME: the initial state should appear (at least) twice now?
@@ -532,7 +558,7 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
               (if (refStates contains initialStateInd)
                  List((initialStateInd, None, List()))
                else List()) ::: // FIXME: why concat?
-                (for (state    <- refStates.iterator;
+                (for (state <- refStates.iterator;
                       preState <- preStates(state))
                   yield (state, Some(preState._1), preState._2)).toList
 
@@ -571,7 +597,7 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
                 st: ((Int, List[(Int, (IdealInt, VariableTerm))]))
             ): LinearCombination = {
               val (state, state_terms) = st
-              val terms                = state_terms.map(_._2)
+              val terms = state_terms.map(_._2)
 
               if (state == finalStateInd)
                 LinearCombination((IdealInt.ONE, OneTerm) :: terms, order)
@@ -590,7 +616,7 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
             val prodEqs = prodsWithVars
               .map(stateTermsFromTransition)
               .flatten
-              .groupBy(_._1)        // group by state
+              .groupBy(_._1) // group by state
               .map(termsToLinearEq) // translate to each state's equation
               .toList
 
@@ -625,8 +651,10 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
             // Production implications: either we didn't use a production, or
             // its corresponding target is greater than zero.
             val prodImps = prodsWithVars
-              .filter{case ((to, _, _), _) => to != finalStateInd}
-              .map{case ((to, _, _), prodVar) => (prodVar === 0) | zVars(to) > 0}
+              .filter { case ((to, _, _), _) => to != finalStateInd }
+              .map {
+                case ((to, _, _), prodVar) => (prodVar === 0) | zVars(to) > 0
+              }
               .toList
 
             // connective
@@ -794,7 +822,7 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
     */
   lazy val states: Iterable[State] = {
     // do this the hard way to give a deterministic ordering
-    val worklist   = new MStack[State]
+    val worklist = new MStack[State]
     val seenstates = new MLinkedHashSet[State]
 
     worklist.push(initialState)
@@ -803,7 +831,8 @@ class BricsAutomaton(val underlying: BAutomaton) extends AtomicStateAutomaton {
     while (!worklist.isEmpty) {
       val s = worklist.pop
 
-      val dests = new MHashMap[TLabel, MSet[State]] with MMultiMap[TLabel, State]
+      val dests = new MHashMap[TLabel, MSet[State]]
+        with MMultiMap[TLabel, State]
 
       for ((to, _) <- outgoingTransitions(s)) {
         if (!seenstates.contains(to)) {
