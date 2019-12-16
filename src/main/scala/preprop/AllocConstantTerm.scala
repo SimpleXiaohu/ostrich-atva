@@ -27,3 +27,24 @@ object AllocTTerm{
 		res
 	 }
 }
+
+object AllocID{
+	var id = 0
+
+	def apply() = {
+		id += 1
+		id
+	}
+}
+
+object GetTime{
+	private var startTime : Long = _
+	private def addTime : Unit = {
+		startTime = System.nanoTime
+	}
+	override def toString : String = {
+		val endTime : Long = System.nanoTime
+		val timeMS = (endTime-startTime).toDouble / 1000000.0
+		"time is "+timeMS+"\n"
+	}
+}

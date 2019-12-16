@@ -29,7 +29,6 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.util.Seqs
 import strsolver.{Flags, IntConstraintStore}
 
-import scala.collection.{breakOut, mutable}
 import scala.collection.mutable.{ArrayBuffer, ArrayStack, LinkedHashSet, BitSet => MBitSet, HashMap => MHashMap, HashSet => MHashSet}
 import scala.language.postfixOps
 import scala.sys.process._
@@ -43,7 +42,8 @@ object Exploration {
     def push : Unit
 
     def pop : Unit
-
+    // add aut to constraintSet and constraints
+    def addAut(aut : Automaton)
     /**
      * Add new automata to the store, return a sequence of term constraints
      * in case the asserted constraints have become inconsistent
@@ -275,10 +275,16 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
 
     try {
-      if(Flags.useParikh)
+      if(Flags.useParikh || !strictLengths)
+        // now we do not use assertconstraints in dfExploreHeuri (some bug in backjump)
+        // so when there is no intFunc, we use dfExploreComplete to backjump.
         dfExploreComplete(funAppList)
-      else
+      else {
+        // clear tmp.txt
+        val out = new PrintWriter(new FileWriter("tmp.txt"))
+        out.close()
         dfExploreHeuri(funAppList)
+      }
       if(Flags.nuxmvTimeout){
         println("unknow")
         System.exit(1)
@@ -305,8 +311,9 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     }
   }
 
-  private def printIntConstraint(atomAuts : Seq[ArrayBuffer[BricsAutomaton]]):Unit = {
-    val out = new PrintWriter(new FileWriter("tmp.txt"))
+  private def printIntConstraint(atomAuts : Seq[ArrayBuffer[BricsAutomaton]], id: Int):Unit = {
+    val out = new PrintWriter(new FileWriter("tmp.txt", true))
+    out.println("%")
     val constantTermSet = new MHashSet[ConstantTerm]()
     constantTermSet ++= SymbolCollector constantsSorted Internal2InputAbsy(IntConstraintStore())
     for(i <- 0 to LCStack.size-1) {
@@ -315,11 +322,14 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         case a => constantTermSet ++= SymbolCollector.constantsSorted((a))
       }
     }
-    constantTermSet ++= SymbolCollector constantsSorted StoreLC()
+//    constantTermSet ++= SymbolCollector constantsSorted StoreLC()
 
-    val notDeclare = getNotDeclare(atomAuts)
+    val notDeclare = getNoNeedDeclare(atomAuts)
     out.print("declare: ")
-    out.println(constantTermSet filterNot notDeclare)
+    if(id == 1) {
+      out.println((constantTermSet filterNot notDeclare).toString.replaceAll("R", "R_"+id+"_"))
+    }else
+      out.println("Set()")
     out.println("#intconstraints:")
     // input int
     if(IntConstraintStore().toString == "true")
@@ -331,12 +341,13 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     for(i <- 0 to LCStack.size-1) {
       val preOpIntFormula = LCStack(i)
       preOpIntFormula().foreach{
-        case f => out.print(" & "+f)
+//        case f => out.print(" & "+f)
+        case f => out.print(" & "+f.toString.replaceAll("R", "R_"+id+"_"))
       }
     }
     //derived int
-    out.println(" & "+StoreLC().toString.toUpperCase())
-
+//    out.println(" & "+StoreLC().toString.toUpperCase())
+    out.println()
     out.close()
   }
   private def getAtomAuts(cons : ArrayBuffer[TermConstraint]) : Seq[ArrayBuffer[BricsAutomaton]] = {
@@ -344,7 +355,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       .map{case a => a.map{case TermConstraint(_,aut)=>AtomicStateAutomatonAdapter.intern(aut).asInstanceOf[BricsAutomaton]}}
       .toSeq
   }
-  private  def printAtomAuts(atomAuts : Seq[ArrayBuffer[BricsAutomaton]]) = {
+  private  def printAtomAuts(atomAuts : Seq[ArrayBuffer[BricsAutomaton]], id : Int) = {
     val out = new PrintWriter(new FileWriter("tmp.txt", true))
     atomAuts.foreach{
       case auts => {
@@ -371,7 +382,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
                 }
             }
             out.print("#register: ")
-            aut.registers.foreach { case r => out.print(r + ";") }
+            aut.registers.foreach { case r => out.print(r.toString.replaceAll("R", "R_"+id+"_") + ";") }
             out.println()
             out.println("#end")
           }
@@ -379,6 +390,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         out.println("$")
       }
     }
+    out.println("%")
     out.close()
   }
 // get product of all (term, aut) in cons, result is final producted bricsAutomaton of each term.  
@@ -397,7 +409,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     (auts.map{aut => aut.parikhImage}).toList
   }
 
-  private def getNotDeclare(seq: Seq[ArrayBuffer[BricsAutomaton]]) = {
+  private def getNoNeedDeclare(seq: Seq[ArrayBuffer[BricsAutomaton]]) = {
     val res = new MHashSet[ConstantTerm]()
     seq.foreach(
       _.foreach{
@@ -450,22 +462,23 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
           }
         }
       }
-
+      val id = AllocID()
       val atomAuts = getAtomAuts(tmpBuffer)
-      measure("println Int constraints") {printIntConstraint(atomAuts)}
-      measure("println atomAuts"){printAtomAuts(atomAuts)}
-      println("nuxmv compute")
-      measure("nuxmv"){nuxmvCompute()} match {
-        // unsat
-        case 0 => return List()
-        // sat
-        case 1 => throw FoundModel(model.toMap)
-        // timeout
-        case 2 => {
-          Flags.nuxmvTimeout = true
-          return List()
-        }
-      }
+      measure("println Int constraints") {printIntConstraint(atomAuts, id)}
+      measure("println atomAuts"){printAtomAuts(atomAuts, id)}
+//      println("nuxmv compute")
+//      measure("nuxmv"){nuxmvCompute()} match {
+//        // unsat
+//        case 0 =>  List()
+//        // sat
+//        case 1 => throw FoundModel(model.toMap)
+//        // timeout
+//        case 2 => {
+//          Flags.nuxmvTimeout = true
+//           List()
+//        }
+//      }
+      List()
     }
     case (op, args, res) :: otherApps =>
     dfExploreHeuriOp(op, args, res, constraintStores(res).getContents,
@@ -518,16 +531,17 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
               // huzi add 
               AtomConstraints.addConstraints(TermConstraint(a,aut))
 
-//               constraintStores(a).assertConstraint(aut) match {
-//                 case Some(conflict) => {
-//                   consistent = false
-// //println("assertConstraint false!!!!!!!!!!!!!")
-//                   assert(!Seqs.disjointSeq(newConstraints, conflict))
-//                   collectedConflicts ++=
-//                     (conflict.iterator filterNot newConstraints)
-//                 }
-//                 case None => // nothing
-//               }
+              constraintStores(a).addAut(aut)
+//              constraintStores(a).assertConstraint(aut) match {
+//                case Some(conflict) => {
+//                  consistent = false
+////println("assertConstraint false!!!!!!!!!!!!!")
+//                  assert(!Seqs.disjointSeq(newConstraints, conflict))
+//                  collectedConflicts ++=
+//                    (conflict.iterator filterNot newConstraints)
+//                }
+//                case None => // nothing
+//              }
             }
 
 
@@ -537,14 +551,14 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
             // huzi add
             if(conflict.isEmpty)
               notConflict = true
-//            else if (Seqs.disjointSeq(newConstraints, conflict)) {
-//              // we can jump back, because the found conflict does not depend
-//              // on the considered function application
-// //println("backjump " + (conflict map { case TermConstraint(t, aut) => (t, aut.hashCode) }))
-//              println("backjmp")
-//              return conflict
-//            }
-//             collectedConflicts ++= (conflict.iterator filterNot newConstraints)
+//           else if (Seqs.disjointSeq(newConstraints, conflict)) {
+//             // we can jump back, because the found conflict does not depend
+//             // on the considered function application
+////println("backjump " + (conflict map { case TermConstraint(t, aut) => (t, aut.hashCode) }))
+//             println("backjmp")
+//             return conflict
+//           }
+            collectedConflicts ++= (conflict.iterator filterNot newConstraints)
           }
         } finally {
           for (a <- args) {
@@ -837,6 +851,11 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
       while (productAut.size > oldSize2) {
         productAut reduceToSize (productAut.size - 1)
       }
+    }
+
+    def addAut(aut : Automaton) = {
+      constraints += aut
+      constraintSet += aut
     }
 
     def assertConstraint(aut : Automaton) : Option[ConflictSet] =

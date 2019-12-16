@@ -18,34 +18,21 @@
 
 package strsolver
 
-import strsolver.preprop.{AllocTTerm, AtomicStateAutomaton, Automaton, BricsAutomaton, ConcatPreOp, Exploration, IndexOfPreOp, LengthPreOp, PreOp, RRFunsToTransducer, ReplaceAllPreOp, ReplaceAllPreOpW, ReplacePreOp, ReplacePreOpW, ReversePreOp, StoreLC, SubStringPreOp, Transducer, TransducerPreOp}
 import ap.SimpleAPI
-import ap.terfor.{OneTerm, TerForConvenience, Term, TermOrder}
-import ap.terfor.preds.PredConj
-import ap.types.Sort
+import ap.parser.Internal2InputAbsy
 import ap.proof.goal.Goal
-import ap.basetypes.IdealInt
-import ap.parser.IExpression.GeqZ
-import ap.parser.{IConstant, IExpression, ITerm, Internal2InputAbsy}
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination2}
+import ap.terfor.preds.PredConj
+import ap.terfor.{OneTerm, Term}
 import dk.brics.automaton.{RegExp, Automaton => BAutomaton}
-import org.sat4j.minisat.learning.NoLearningNoHeuristics
+import strsolver.preprop._
 
 import scala.collection.breakOut
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 class PrepropSolver {
 
-  import StringTheory.{
-    member, replaceall, replaceallre, replace, replacere,
-    reverse, wordEps, wordCat, wordChar, wordDiff, wordLen,
-    // hu zi add -----------------------------------------------
-    substring, indexof, str_contains, str_prefixof, str_at,
-    // hu zi add -----------------------------------------------
-    rexEmpty, rexEps, rexSigma,
-    rexStar, rexUnion, rexChar, rexCat, rexNeg, rexRange,
-    FunPred
-  }
+  import StringTheory._
 
   val rexOps = Set(rexEmpty, rexEps, rexSigma,
     rexStar, rexUnion, rexChar, rexCat, rexNeg, rexRange)
