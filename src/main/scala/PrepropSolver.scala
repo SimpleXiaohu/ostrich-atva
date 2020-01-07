@@ -98,30 +98,6 @@ class PrepropSolver {
     // literals
     val funApps = new ArrayBuffer[(PreOp, Seq[Term], Term)] // all the funciton except length and indexof
     val intFunApps = new ArrayBuffer[(PreOp, Seq[Term], Term)] // length and indexof funciton
-    //    // (res, i, j) store res and two substring int,
-    //    // to handle "" = substr(x, i, j), j<i. Or fasten unsat substring situation
-    //    val substrInt = new MHashSet[(Term, Term, Term)]()
-    //    // for other func ""=func(parameters), which implys the constraints is unsat
-    //    val notSubstrNull = new MHashSet[Term]()
-    //    // for example: 0 = length(x), x = substring(y, i, j), we can just add intconstraints i>=j
-    //    // we store the term x in buffer zeroLen
-    //    val zeroLen = new ArrayBuffer[Term]()
-    //    for(a <- atoms.positiveLits) a.pred match {
-    //      case FunPred(`substring`) => {
-    //        substrInt += ((a(3), a(1), a(2)));
-    //      }
-    //      case FunPred(`wordLen`) => {
-    //        if (a(1).isZero)
-    //          zeroLen += a(0)
-    //      }
-    //      case `str_contains` => {
-    //        if(concreteWords.contains(a.last) && concreteWords(a.last)!=List())
-    //          notSubstrNull += a.head
-    //      }
-    //      case _ => {
-    //        //TODO
-    //      }
-    //    }
 
     // handle wordlen firstly
     for (a <- atoms.positiveLits) a.pred match {
@@ -152,9 +128,9 @@ class PrepropSolver {
           val str = concreteWords(a.last).map(_.toChar).mkString
           println("str.contains(" + a.head + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
-          val anyStrAut1 = BAutomaton.makeAnyString
-          val anyStrAut2 = BAutomaton.makeAnyString
-          regexes += ((a.head, BricsAutomaton.concat(List(anyStrAut1, tmpAut.underlying, anyStrAut2))))
+          val anyStrAut1 = BricsAutomaton.makeAnyString
+          val anyStrAut2 = BricsAutomaton.makeAnyString
+          regexes += ((a.head, BricsAutomaton.concat(List(anyStrAut1, tmpAut, anyStrAut2))))
         } else {
           println("str_contains not -----------------concreate word")
           println("unknow")
@@ -170,8 +146,8 @@ class PrepropSolver {
           val str = concreteWords(a.head).map(_.toChar).mkString
           println("str.prefix(" + a.last + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
-          val anyStrAut = BAutomaton.makeAnyString
-          regexes += ((a.last, BricsAutomaton.concat(List(tmpAut.underlying, anyStrAut))))
+          val anyStrAut = BricsAutomaton.makeAnyString
+          regexes += ((a.last, BricsAutomaton.concat(List(tmpAut, anyStrAut))))
         } else {
           println("str_prefixof not -----------------concreate word")
           println("unknow")
@@ -289,14 +265,6 @@ class PrepropSolver {
           throw new Exception("indexof pattern is not a concrete word ")
         val u = (regex2AFA buildStrings a(1)).next.map(_.left.get.toChar)
         if(u.size == 0){
-          // pattern is ""
-          // val t : Term = AllocTTerm()
-          // val i = Internal2InputAbsy(a(3))
-          // val j = Internal2InputAbsy(a(2))
-          // val ti = Internal2InputAbsy(t)
-          // intFunApps += ((LengthPreOp(Internal2InputAbsy(t)), List(a(0)), t))   // t = wordLen(a(0))
-          // StoreLC.addFormula( ((i==j)&(j<=ti)) |
-          //   ((i == -1)&(j>ti)))
           // cvc4 semantic
           return None // unsat
         }else {
@@ -304,17 +272,7 @@ class PrepropSolver {
         }
       }
       case FunPred(`str_at`) => {
-//        if(!lenVar.contains(a(0))) {
-//          val t = AllocTTerm()
-//          lenVar += ((a(0), t))
-//          intFunApps += ((LengthPreOp(Internal2InputAbsy(t)), List(a(0)), t))
-//          funApps += ((SubStringPreOp(a(1), OneTerm, t), List(a(0), a(1), OneTerm), a(2)))
-//        }else{
-//          val t = lenVar(a(0))
-//          funApps += ((SubStringPreOp(a(1), OneTerm, t), List(a(0), a(1), OneTerm), a(2)))
-//        }
-
-        // tmpTerm(0) is x len, tmpTerm(1) is res len
+        // TODO: we assume that res str len is 1, not guaranteed
         val tmpTerm = new ArrayBuffer[Term]()
         // x len
         if(lenVar.contains(a(0)))
@@ -359,9 +317,9 @@ class PrepropSolver {
           val str = concreteWords(a.last).map(_.toChar).mkString
           println("!str.contains(" + a.head + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
-          val anyStrAut1 = BAutomaton.makeAnyString
-          val anyStrAut2 = BAutomaton.makeAnyString
-          regexes += ((a.head, !BricsAutomaton.concat(List(anyStrAut1, tmpAut.underlying, anyStrAut2))))
+          val anyStrAut1 = BricsAutomaton.makeAnyString
+          val anyStrAut2 = BricsAutomaton.makeAnyString
+          regexes += ((a.head, !BricsAutomaton.concat(List(anyStrAut1, tmpAut, anyStrAut2))))
         } else {
           println("str_contains not -----------------concreate word")
           println("unknow")
@@ -376,8 +334,8 @@ class PrepropSolver {
           val str = concreteWords(a.head).map(_.toChar).mkString
           println("str.prefix(" + a.last + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
-          val anyStrAut = BAutomaton.makeAnyString
-          regexes += ((a.last, !BricsAutomaton.concat(List(tmpAut.underlying, anyStrAut))))
+          val anyStrAut = BricsAutomaton.makeAnyString
+          regexes += ((a.last, !BricsAutomaton.concat(List(tmpAut, anyStrAut))))
         } else {
           println("str_prefixof not -----------------concreate word")
           println("unknow")
@@ -444,7 +402,6 @@ class PrepropSolver {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    SimpleAPI.withProver { lengthProver =>
       val exploration =
         Exploration.lazyExp(funApps, intFunApps, concreteWords, regexes,
            containsLength)
@@ -454,7 +411,7 @@ class PrepropSolver {
           (concreteWords mapValues (_.toList)))
         case None => None
       }
-    }
+    
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,7 @@
 package strsolver.preprop
 import ap.parser._
+
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ArrayStack}
 
 class LinearConstraints{
@@ -15,10 +17,23 @@ class LinearConstraints{
 
 object StoreLC{
 	// the stored formula
-	var store : IFormula = IBoolLit(true)
+	val store = new mutable.HashSet[IFormula]()
+	var res : IFormula = IBoolLit(true)
 	def addFormula(f : IFormula) = {
-		store = (f & store)
+//		store = (f & store)
+		store += f
 	}
+
  	// return the stored formula
-	def apply() = store
+	def apply() = {
+		store.foreach{
+			case f => res = f & res
+		}
+		res
+	}
+	def clean() = {
+		res = IBoolLit(true)
+		store.clear()
+	}
+
 }

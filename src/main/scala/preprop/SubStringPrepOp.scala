@@ -1,8 +1,10 @@
 package strsolver.preprop
 import ap.basetypes.IdealInt
-import ap.parser.{IFormula, Internal2InputAbsy}
-import ap.terfor.Term
+import ap.parser.{IFormula, ITerm, Internal2InputAbsy}
+import ap.terfor.{OneTerm, Term, linearcombination}
 import ap.terfor.linearcombination.LinearCombination
+
+import scala.collection.mutable.SortedSet
 
 object SubStringPreOp{
   def apply(i : Term, j : Term, xlen : Term, reslen : Term) : PreOp = {
@@ -10,8 +12,61 @@ object SubStringPreOp{
   }
 }
 
+
 class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends PreOp{
   // TODO : add logic
+  def getSpecialPre(j: ITerm, reslen: ITerm, xlen:ITerm, resAut: BricsAutomaton) : Iterator[(Seq[Automaton], LinearConstraints)] = {
+    println("handle substr special case")
+    val a = new LinearConstraints
+    val b = resAut.getBuilder
+    val tmpList = List.fill(resAut.registers.size)(0)
+    val states = List.fill(resAut.states.size)(b.getNewState)
+    val sigmaS = b.getNewState
+    val sigma = b.LabelOps.sigmaLabel
+    val statesmap = resAut.states.zip(states).toMap
+    b.setInitialState(statesmap(resAut.initialState))
+    for(s <- resAut.states){
+      for((to,label) <- resAut.outgoingTransitions(s)){
+        val vector = resAut.etaMap((s, label, to))
+        b.addTransition(statesmap(s), label, statesmap(to), List(1)++vector)
+      }
+      if(resAut.isAccept(s)){
+        b.setAccept(statesmap(s), true)
+        val lables = SortedSet[Char]()
+        for((_,lable) <- resAut.outgoingTransitions(s)) {
+          lables += lable._1
+          lables += lable._2
+        }
+        val otherLable = Util.subtractLettersSigma(lables)
+        otherLable.foreach(
+          b.addTransition(statesmap(s), _, sigmaS, List(0)++tmpList)
+        )
+
+      }
+    }
+    b.setAccept(sigmaS, true)
+    b.addTransition(sigmaS, sigma, sigmaS, List(0)++tmpList)
+    val res = b.getAutomaton
+    res.addNewRegister(1)
+    res.addRegisters(resAut.registers)
+    res.addEtaMaps(b.etaMap)
+    a.addFormula( (
+      (res.registers(0) === j) & // for cvc4 , j is offset, position is i+j
+        (res.registers(0) <= xlen)
+      ) |
+      (
+        (res.registers(0) === xlen) &
+          (j > reslen)   // for cvc4, if i+j > s.len, the substr(s,i, s.len)
+        ) |
+      (
+        // handle ""
+        (j===0 | xlen === 0) &
+        (reslen === 0)
+        )
+    )
+    a.addFormula(j>=0)
+    Iterator((Seq(res), a))
+  }
 	def apply(argumentConstraints : Seq[Seq[Automaton]],
             resultConstraint : Automaton)
           : (Iterator[(Seq[Automaton], LinearConstraints)], Seq[Seq[Automaton]]) = {
@@ -20,14 +75,62 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
     val input_xlen = Internal2InputAbsy(xlen)
     val input_reslen = Internal2InputAbsy(reslen)
     val a = new LinearConstraints
-    val resAut = AtomicStateAutomatonAdapter.intern(resultConstraint).asInstanceOf[BricsAutomaton]
+    var resAut = AtomicStateAutomatonAdapter.intern(resultConstraint).asInstanceOf[BricsAutomaton]
     // "" = substring(x, i, j)
-    if(resAut.underlying.isEmptyString()){
+    if(resAut.underlying.isEmptyString() || reslen == LinearCombination.ZERO){
 //       i<0 | j <= 0 | i >= len(x)
-      a.addFormula((input_i < 0) | (input_j<=0) | input_i >= input_xlen)
+      a.addFormula((input_i < 0) | (input_j===0) | input_i >= input_xlen)
       return (Iterator((Seq(BricsAutomaton.makeAnyString()), a)), List())
     }
-
+    val resContainElp = resAut.underlying.getShortestExample(true) == ""
+    //////////////////////////////////////
+    // j == 1, for example, substr derived from str.at
+    val b = resAut.getBuilder
+    val initState_ = b.getNewState
+    b.setInitialState(initState_)
+    for((to, label) <- resAut.outgoingTransitions(resAut.initialState)){
+      val state = b.getNewState
+      if(resAut.isAccept(to)){
+        b.setAccept(state, true)
+      }
+      val vector = resAut.etaMap((resAut.initialState, label, to))
+      b.addTransition(initState_, label, state, vector)
+    }
+    val res1 = b.getAutomaton
+    res1.addEtaMaps(b.etaMap)
+    res1.addRegisters(resAut.registers)
+    //////////////////////////////////////
+    if(i == LinearCombination.ZERO){
+      // i == 0
+      if(j == OneTerm){
+        println("-------------------------")
+        val res = BricsAutomaton.concat(res1,BricsAutomaton.makeAnyString())
+        if(resContainElp){
+          return (Iterator((Seq(res),a),(Seq(BricsAutomaton.fromString("")),a)),List())
+        }else {
+          return (Iterator((Seq(res), a)), List())
+        }
+      }else {
+        val res = getSpecialPre(input_j, input_reslen, input_xlen, resAut)
+        return (res, List())
+      }
+    }
+    if(i.toString == xlen.toString+" + -1" && j == OneTerm){
+      // i = xlen - 1, i.e the last position of string x
+      println("=============")
+      val res = BricsAutomaton.concat(BricsAutomaton.makeAnyString(), res1)
+      if(resContainElp){
+        return (Iterator((Seq(res),a),(Seq(BricsAutomaton.fromString("")),a)),List())
+      }else {
+        return (Iterator((Seq(res), a)), List())
+      }
+    }
+    // TODO : optimize
+    if( j == OneTerm ){
+      resAut = res1
+      if(resContainElp)
+        resAut.initialState.setAccept(true)
+    }
 
     val builder = resAut.getBuilder
     val infiniteCycleS = builder.getNewState
@@ -46,7 +149,7 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
     if(resAut.isAccept(resInit))
     builder.setAccept(initState, true)
 
-    var needIFCS : Boolean = false
+//    var needIFCS : Boolean = false
     // add transition from resAut initState
     for((ts, (charMin, charMax)) <- resAut.outgoingTransitions(resInit)){
       val vector = resAut.etaMap((resInit, (charMin,charMax), ts))
@@ -62,7 +165,7 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
     }
     for(fs <- resAut.states){
       val fsIsAccept = resAut.isAccept(fs)
-      builder.setAccept(sMap(fs), fsIsAccept)
+//      builder.setAccept(sMap(fs), fsIsAccept)
       if(resInitArrivable || fs != resInit) {
         // if resInit not arrivable,
         // resInit's transition has already been added above
@@ -70,21 +173,32 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
           val vector = resAut.etaMap((fs, label, ts))
           builder.addTransition(sMap(fs), label, sMap(ts), List(0, 1) ++ vector)
         }
-        if (fsIsAccept)
-        if (builder.etaMap.contains((sMap(fs), sigma, sMap(fs)))) {
-          needIFCS = true
-          builder.addTransition(sMap(fs), sigma, infiniteCycleS, List(0, 0) ++ tmpList)
-        } else
-        builder.addTransition(sMap(fs), sigma, sMap(fs), List(0, 0) ++ tmpList)
+        if (fsIsAccept) {
+          builder.setAccept(sMap(fs), true)
+          val lables = SortedSet[Char]()
+          for((_,lable) <- resAut.outgoingTransitions(fs)) {
+            lables += lable._1
+            lables += lable._2
+          }
+          val otherLable = Util.subtractLettersSigma(lables)
+          otherLable.foreach(
+            builder.addTransition(sMap(fs), _, infiniteCycleS, List(0,0) ++ tmpList)
+          )
+//          if (builder.etaMap.contains((sMap(fs), sigma, sMap(fs)))) {
+//            needIFCS = true
+//            builder.addTransition(sMap(fs), sigma, infiniteCycleS, List(0, 0) ++ tmpList)
+//          } else
+//            builder.addTransition(sMap(fs), sigma, sMap(fs), List(0, 0) ++ tmpList)
+        }
       }
     }
-    if(needIFCS)
+//    if(needIFCS)
     builder.addTransition(infiniteCycleS,sigma,infiniteCycleS, List(0,0)++tmpList)
     val res = builder.getAutomaton
     res.addEtaMaps(builder.etaMap)
     res.addNewRegister(2)   // i,j
     res.addRegisters(resAut.registers)  // New registers is (i, j)++resAut.registers
-    if(resAut.underlying.getShortestExample(true) == ""){
+    if(resContainElp){
       // res contains ""
       a.addFormula( ( ( (
                           (res.registers(1) === (input_i+input_j)) & // for cvc4 , j is offset, position is i+j
@@ -92,14 +206,14 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
                         ) |
                         (
                           (res.registers(1) === input_xlen) &
-                          ((input_i+input_j) > input_xlen)   // for cvc4, if i+j > s.len, the substr(s,i, s.len)
+                          (input_i+input_j > input_reslen )   // for cvc4, if i+j > s.len, the substr(s,i, s.len)
                         )
-                      ) & 
+                      ) &
                       (res.registers(0) === input_i)
                     ) |
                     // logic for res is ""
                     (
-                      ((input_i < 0) | (input_j<=0) |(input_i >= input_xlen)) &
+                      ((input_i < 0) | (input_j===0)| input_xlen <= input_i) &
                       (input_reslen === 0)
                     )
                   )
@@ -110,20 +224,13 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
                       ) |
                       (
                         (res.registers(1) === input_xlen) &
-                        ((input_i+input_j) > input_xlen)   // for cvc4, if i+j > s.len, the substr(s,i, s.len)
+                        (input_i + input_j > input_reslen)   // for cvc4, if i+j > s.len, the substr(s,i, s.len)
                       )
                     ) & 
                     (res.registers(0) === input_i)
                   )
     }
-
-//    if(resAut.underlying.getShortestExample(true) == ""){
-//      // when resAut contains "", we need two choice,
-//      val b = new LinearConstraints
-//      b.addFormula((input_i < 0) | (input_j<=0) |(input_i >= input_xlen))
-//      val resList = List((Seq(BricsAutomaton.makeAnyString()), b)) :+ ((Seq(res), a))
-//      return  (resList.toIterator, List())
-//    }
+    a.addFormula(input_j>=0)
     (Iterator((Seq(res), a)), List())
   }
 

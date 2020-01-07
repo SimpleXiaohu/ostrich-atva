@@ -1,9 +1,10 @@
 package strsolver.preprop
 import ap.basetypes.IdealInt
-import ap.parser.Internal2InputAbsy
+import ap.parser.{ITerm, Internal2InputAbsy}
 import ap.terfor.Term
 import ap.terfor.linearcombination.LinearCombination
 
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, SortedSet}
 
 // i = indexof(x,u,j),
@@ -22,33 +23,67 @@ class IndexOfPreOp(u : List[Char], internali : Term, internalj : Term) extends P
    */
   val i = Internal2InputAbsy(internali)
   val j = Internal2InputAbsy(internalj)
-  def subtractLettersSigma(set : SortedSet[Char]) : Iterable[(Char,Char)] = {
-    val s = set.toBuffer
-      val size = s.size
-      var res = List[(Char, Char)]()
-      var min = Char.MinValue
-      val charMax = Char.MaxValue
-      val charMin = Char.MinValue
-      // val charMax = 127.toChar
-      // val charMin = 0.toChar
 
-      if(size == 0){
-        res = (charMin, charMax):: res
-      }else{
-        for(i <- 0 to size-2){
-          if(min == s(i)){
-            min = (s(i)+1).toChar
-          }else{
-            res = (min, (s(i)-1).toChar):: res
-            min = (s(i)+1).toChar
-          }
-        }
-        res = (min, (s(size-1)-1).toChar):: res
-        if(s(size-1) != charMax)
-        res = ((s(size-1)+1).toChar, charMax):: res
-      }
-      res
+
+  def getSpecialPre(resAut: Automaton, i: ITerm, j: ITerm, u: List[Char]) : Iterator[(Seq[Automaton], LinearConstraints)] = {
+    var resList : List[(Seq[Automaton], LinearConstraints)]= List()
+    // i == -1
+    val res_1 = !BricsAutomaton.concat(List(
+      BricsAutomaton.makeAnyString,BricsAutomaton.fromString(u.mkString), BricsAutomaton.makeAnyString))
+    val a_1 = new LinearConstraints
+    a_1.addFormula(i === -1)
+    resList = resList :+ ((Seq(res_1), a_1))
+    if( i.toString == "-1"){
+      return  resList.toIterator
     }
+
+    // i != -1
+    val patternLen = u.size
+    val a_2= new LinearConstraints
+    val builder = new BricsAutomatonBuilder
+    val Sigma = builder.LabelOps.sigmaLabel
+    val subtract0 = builder.LabelOps.subtractLetter(u(0), Sigma)
+    val next = KMP.get_next(u)
+    val states = List.fill(patternLen + 1)(builder.getNewState)
+    builder.setInitialState(states(0))
+    builder.setAccept(states(patternLen), true)
+
+    //
+    // add transition
+    subtract0.foreach(
+        builder.addTransition(states(0), _, states(0), List(1))
+    )
+
+    for (i <- 0 to patternLen - 1) {
+      builder.addTransition(states(i), (u(i), u(i)), states(i + 1), List(0))
+      var j = next(i)
+      val seenSet = SortedSet[Char]()
+      seenSet += u(i)
+      // add transition based on the "next" set in KMP
+      while (j != -1) {
+        if (!seenSet(u(j))) {
+          builder.addTransition(states(i), (u(j), u(j)), states(j + 1), List(i - j))
+          seenSet += u(j)
+        }
+        j = next(j)
+      }
+      // except for char in seenSet, other char will jump to state(0)
+      val otherLable = Util.subtractLettersSigma(seenSet)
+      otherLable.foreach(
+          builder.addTransition(states(i), _, states(0), List(i + 1))
+      )
+
+      // match char after the mathced pattern
+      builder.addTransition(states(patternLen), Sigma, states(patternLen), List(0))
+    }
+    val res = builder.getAutomaton
+    res.addNewRegister(1) // i
+    a_2.addFormula( i >= 0)
+    a_2.addFormula( i === res.registers(0))
+    res.addEtaMaps(builder.etaMap)
+    resList = resList :+ ((Seq(res),a_2))
+    resList.toIterator
+  }
 
   def apply(argumentConstraints : Seq[Seq[Automaton]],
   resultConstraint : Automaton)
@@ -60,7 +95,12 @@ class IndexOfPreOp(u : List[Char], internali : Term, internalj : Term) extends P
     val Sigma = builder_1.LabelOps.sigmaLabel
     val subtract0 = builder_1.LabelOps.subtractLetter(u(0), Sigma)
     val next = KMP.get_next(u)
-    // i ==-1
+    if( j.toString == "0" ){
+      println("handle spacial case")
+      val res = getSpecialPre(resultConstraint, i, j, u)
+      return (res, argumentConstraints)
+    }
+    // i == -1
     val a_1 = new LinearConstraints
     val initState_1 = builder_1.getNewState
     builder_1.setInitialState(initState_1)
@@ -93,7 +133,7 @@ class IndexOfPreOp(u : List[Char], internali : Term, internalj : Term) extends P
           }
           j = next(j)
         }
-        val otherLable = subtractLettersSigma(seenSet)
+        val otherLable = Util.subtractLettersSigma(seenSet)
         otherLable.foreach(
         builder_1.addTransition(states_1(i), _, states_1(0), List(0))
         )
@@ -112,7 +152,6 @@ class IndexOfPreOp(u : List[Char], internali : Term, internalj : Term) extends P
     resList =  resList :+ (Seq(res_1), a_1)
     if(internali == LinearCombination.MINUS_ONE)
       return  (resList.toIterator, argumentConstraints)
-//      println("minussssssssssssssssssssssssssssssss")
 
 
     // i!=-1
@@ -148,7 +187,7 @@ class IndexOfPreOp(u : List[Char], internali : Term, internalj : Term) extends P
           j = next(j)
         }
         // except for char in seenSet, other char will jump to state(0)
-        val otherLable = subtractLettersSigma(seenSet)
+        val otherLable = Util.subtractLettersSigma(seenSet)
         otherLable.foreach(
         builder.addTransition(states(i), _, states(0), List(0, i + 1))
         )
@@ -163,10 +202,12 @@ class IndexOfPreOp(u : List[Char], internali : Term, internalj : Term) extends P
       a.addFormula(res.registers(0) === j)
       a.addFormula(j >= 0)    // cvc4 semantics
       a.addFormula(res.registers(1) === i)
+      a.addFormula(i >= 0)
       resList = resList :+ (Seq(res),a)
 
       (resList.toIterator, argumentConstraints)
-    }
+//    (Iterator((Seq(res),a)), argumentConstraints)
+  }
     
     def eval(arguments : Seq[Seq[Int]]) : Option[Seq[Int]] = 
       // it is inaccurate, if we want to do some forward optimizition, we need finish this func

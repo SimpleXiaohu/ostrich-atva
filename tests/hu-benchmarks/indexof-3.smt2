@@ -12,6 +12,6 @@
 (assert(str.in.re x2 (re.* (str.to.re "cd"))))
 (assert(= x3 (str.++ x1 x2)))
 (assert(= (str.indexof x3 "abacd" 10000) t))	
-(assert (> t 10000000))
+(assert (< t 10000000))
 
 (check-sat)

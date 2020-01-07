@@ -19,13 +19,13 @@
 package strsolver
 
 import ap._
-import ap.parser._
 import ap.parameters.PreprocessingSettings
+import ap.parser._
+import ap.theories.TheoryRegistry
 import ap.util.CmdlParser
+import strsolver.preprop.RRFunsToTransducer
 
 import scala.collection.mutable.ArrayBuffer
-import ap.theories.TheoryRegistry
-import strsolver.preprop.RRFunsToTransducer
 
 object SMTLIBMain {
 
@@ -40,6 +40,10 @@ object SMTLIBMain {
     var assertions = false
 
     for (str <- args) str match {
+      case CmdlParser.ValueOpt("strategy", value) =>
+        Flags.strategy = value
+      case CmdlParser.ValueOpt("window", value) =>
+        Flags.windowSize = value
       case CmdlParser.ValueOpt("timeout", value) =>
         timeout = Some(value.toLong * 1000)
       case CmdlParser.ValueOpt("nuxmvtime", value) =>
@@ -106,10 +110,8 @@ object SMTLIBMain {
     ap.util.Timer.reset
     val p = SimpleAPI
     SimpleAPI.withProver(enableAssert = assertions) { p =>
-      import IExpression._
       import SimpleAPI._
       import p._
-      import strsolver.preprop.AllocRegisterTerm
       // import strsolver.preprop.StoreLC
 
       try {
@@ -119,14 +121,14 @@ object SMTLIBMain {
                           if ((TheoryRegistry lookupSymbol p).isEmpty))
                      yield p)
 
-        ?? (intFormula)
+        ??(intFormula)
 
 //debug----------------
         Console.err.println
         val res = {
-          checkSat(false)
-          while (getStatus(100) == ProverStatus.Running)
-            timeoutChecker()
+         checkSat(false)
+         while (getStatus(100) == ProverStatus.Running)
+           timeoutChecker()
           ???
         }
         res match {

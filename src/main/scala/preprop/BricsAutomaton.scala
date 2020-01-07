@@ -18,20 +18,16 @@
 
 package strsolver.preprop
 
-import java.io.{FileWriter, PrintWriter}
-
-import strsolver.Regex2AFA
+import ap.parser.{IConstant, ITerm, InputAbsy2Internal}
 import ap.terfor.Term
 import ap.terfor.preds.PredConj
-import ap.parser.{IConstant, ITerm, InputAbsy2Internal, Internal2InputAbsy}
 import dk.brics.automaton.{BasicAutomata, BasicOperations, RegExp, Transition, Automaton => BAutomaton, State => BState}
+import strsolver.Regex2AFA
 
 import scala.collection.JavaConversions.{asScalaIterator, iterableAsScalaIterable}
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet, LinkedHashSet => MLinkedHashSet, MultiMap => MMultiMap, Set => MSet, Stack => MStack, TreeSet => MTreeSet}
-import scala.collection.immutable.List
-import java.util.{List => JList}
-
 import scala.collection.JavaConverters._
+import scala.collection.immutable.List
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet, LinkedHashSet => MLinkedHashSet, MultiMap => MMultiMap, Set => MSet, Stack => MStack, TreeSet => MTreeSet}
 
 object BricsAutomaton {
   private def toBAutomaton(aut : Automaton) : BAutomaton = aut match {
@@ -81,18 +77,147 @@ object BricsAutomaton {
 
 
   // huzi add -------------------------------------------
+  def isLenAut(aut : BricsAutomaton) : Boolean = {
+    aut.etaMap.values.forall{
+      case l => l==List(1)
+    }
+  }
+  def isNormalAut(aut : BricsAutomaton) : Boolean = {
+    aut.registers.size==0
+  }
+  def isOtherAut(aut : BricsAutomaton) : Boolean = {
+    !isLenAut(aut) && !isNormalAut(aut)
+  }
+//  def lenAutsProduct(aut1 : BricsAutomaton, aut2 : BricsAutomaton) : BricsAutomaton = {
+//    val tmpaut = (aut1 & aut2).asInstanceOf[BricsAutomaton]
+//    val b = aut1.getBuilder
+//    val states = List.fill(tmpaut.states.size)(b.getNewState)
+//    val statesmap = tmpaut.states.zip(states).toMap
+//    b.setInitialState(statesmap(tmpaut.initialState))
+//    for(s <- tmpaut.states){
+//      if(tmpaut.isAccept(s)){
+//        b.setAccept(statesmap(s), true)
+//      }
+//      for((to, label) <- tmpaut.outgoingTransitions(s)){
+//        b.addTransition(statesmap(s), label, statesmap(to), List(1))
+//      }
+//    }
+//    val res = b.getAutomaton
+//    res.addEtaMaps(b.etaMap)
+//    if(aut1.registers(0)!=aut2.registers(0)) {
+//      // add new register and add formula
+//      res.addNewRegister(1)
+//      StoreLC.addFormula(res.registers(0) === aut1.registers(0) &
+//        res.registers(0) === aut2.registers(0))
+//    }else {
+//      res.addRegisters(aut1.registers)
+//    }
+//    res
+//  }
+
+  def lenAutsProduct(auts : Seq[Automaton]) : BricsAutomaton = {
+    val autStand = auts(0).asInstanceOf[BricsAutomaton]
+    val tmpaut = auts.reduceLeft(_&_).asInstanceOf[BricsAutomaton]
+    if(auts.size <= 0 )
+      throw new Exception("auts size is 0")
+    val b = autStand.getBuilder
+    val states = List.fill(tmpaut.states.size)(b.getNewState)
+    val statesmap = tmpaut.states.zip(states).toMap
+    b.setInitialState(statesmap(tmpaut.initialState))
+    val autsRegSet = new MHashSet[ITerm]()
+    auts.foreach{
+      case a => autsRegSet ++= a.registers.toSet
+    }
+    for(s <- tmpaut.states){
+      if(tmpaut.isAccept(s)){
+        b.setAccept(statesmap(s), true)
+      }
+      for((to, label) <- tmpaut.outgoingTransitions(s)){
+        if(autsRegSet.size>0)
+          // have registers
+          b.addTransition(statesmap(s), label, statesmap(to), List(1))
+        else
+          // do not have registers
+          b.addTransition(statesmap(s), label, statesmap(to))
+      }
+    }
+    val res = b.getAutomaton
+    res.addEtaMaps(b.etaMap)
+    if(autsRegSet.size > 0) {
+      // have registers
+      res.addRegisters(autsRegSet.toList.takeRight(1))
+      autsRegSet.foreach {
+        case reg => StoreLC.addFormula(res.registers(0) === reg)
+      }
+    }
+    res
+  }
   /**
     * concatenate
     */
-  def concat(auts : List[BAutomaton]) : Automaton = {
-    val aut = BasicOperations.concatenate(auts.asJava)
-    aut.minimize()
-    aut.restoreInvariant
-    new BricsAutomaton(aut)
+  def concat(aut1: BricsAutomaton, aut2: BricsAutomaton) : BricsAutomaton = {
+    if(aut1.registers.size==0 && aut2.registers.size==0) {
+      // normal concat, all auts do not contain register
+      val Baut1 = aut1.underlying
+      val Baut2 = aut2.underlying
+      val aut = BasicOperations.concatenate(Baut1, Baut2)
+      aut.minimize()
+      aut.restoreInvariant
+      new BricsAutomaton(aut)
+    }else{
+      val aut2containEpsilon = aut2.underlying.getShortestExample(true) == ""
+      // some auts contain registers
+      val r1len = aut1.registers.size
+      val tmplist1 = List.fill(r1len)(0)
+      val r2len = aut2.registers.size
+      val tmplist2 = List.fill(r2len)(0)
+      val b = aut1.getBuilder
+      val newstates = List.fill(aut1.states.size+aut2.states.size)(b.getNewState)
+      val statesmap = (aut1.states.toList++aut2.states.toList).zip(newstates).toMap
+      b.setInitialState(statesmap(aut1.initialState))
+      for(s1 <- aut1.states){
+        for((to, label) <- aut1.outgoingTransitions(s1)){
+          val vector = aut1.etaMap((s1,label,to))
+          b.addTransition(statesmap(s1), label, statesmap(to), vector++tmplist2)
+        }
+        if(aut1.isAccept(s1)){
+          if(aut2containEpsilon)
+            b.setAccept(statesmap(s1), true)
+          for((to,label) <- aut2.outgoingTransitions(aut2.initialState)){
+            val vector = aut2.etaMap((aut2.initialState, label, to))
+            b.addTransition(statesmap(s1), label, statesmap(to), tmplist1++vector)
+          }
+        }
+      }
+      var aut2InitArrivable = false
+      val aut2Init = aut2.initialState
+      for((_, _, to) <- aut2.transitions){
+        if(to == aut2Init)
+          aut2InitArrivable = true
+      }
+      for(s2 <- aut2.states){
+        if(aut2.isAccept(s2)){
+          b.setAccept(statesmap(s2), true)
+        }
+        if(aut2InitArrivable || s2!=aut2Init) {
+          for ((to, label) <- aut2.outgoingTransitions(s2)) {
+            val vector = aut2.etaMap((s2, label, to))
+            b.addTransition(statesmap(s2), label, statesmap(to), tmplist1 ++ vector)
+          }
+        }
+      }
+      val res = b.getAutomaton
+      res.addEtaMaps(b.etaMap)
+      res.addRegisters(aut1.registers++aut2.registers)
+      res
+    }
+  }
+  def concat(auts: List[BricsAutomaton]) : BricsAutomaton = {
+    auts.reduceLeft(concat(_,_))
   }
 
   // get product of auts whose registers is NULL
-  def productSpecially(auts: Seq[Automaton]) : BricsAutomaton = {
+  def productNormally(auts: Seq[Automaton]) : BricsAutomaton = {
     new BricsAutomaton(toBAutomaton(auts.reduceLeft(_ & _)))
   }
 
@@ -440,14 +565,13 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
   /**
    * get parikh iamge of BricsAutomaton
    */
-  import ap.terfor.{Formula, Term, TerForConvenience, TermOrder, OneTerm}
-  import scala.collection.mutable.{BitSet => MBitSet,
-                                   HashMap => MHashMap, HashSet => MHashSet,
-                                   ArrayStack}
-  import ap.terfor.linearcombination.LinearCombination
-  import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
-  import ap.basetypes.IdealInt
   import ap.PresburgerTools
+  import ap.basetypes.IdealInt
+  import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+  import ap.terfor.linearcombination.LinearCombination
+  import ap.terfor.{Formula, OneTerm, TerForConvenience, TermOrder}
+
+  import scala.collection.mutable.{BitSet => MBitSet, HashMap => MHashMap}
 
   override def parikhImage : Formula = Exploration.measure("length abstraction") {
     import TerForConvenience._
@@ -644,7 +768,7 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
     for(i <- 1 to num)
       registers += AllocRegisterTerm()
   }
-  def addRegisters(rs : ArrayBuffer[ITerm]): Unit = {
+  def addRegisters(rs : Seq[ITerm]): Unit = {
     registers ++= rs
   }  
   def setRegisters (rs : ArrayBuffer[ITerm]): Unit = {
@@ -669,26 +793,6 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
   def removeDeadTranstions() : Unit = {
 
   }
-
-  // print this aut
-//  def printAut() : Unit = {
-//    val out = new PrintWriter(new FileWriter("tmp.txt", true))
-//    val statesIndex = states.zipWithIndex.toMap
-//    out.println("#automata:")
-//    out.println("#states: "+states.size)
-//    out.println("#init: "+ statesIndex(initialState))
-//    out.print("#final: ")
-//    acceptingStates.foreach{case state => print(statesIndex(state) + ",")}
-//    out.println()
-//    out.println("#transitons: ")
-//    etaMap.foreach{case ((from, (charmin,charmax), to),vector) =>
-//      out.println(statesIndex(from)+";"+statesIndex(to)+";"+charmin.toInt+";"+charmax.toInt+";"+vector)}
-//    out.print("#register: ")
-//    registers.foreach{case r => out.print(r + ",")}
-//    out.println()
-//    out.close()
-//  }
-
   // hu zi add ------------------------------------------------------------------------------------------------------
 
   /**

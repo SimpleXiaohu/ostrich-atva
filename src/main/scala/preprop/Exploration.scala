@@ -218,14 +218,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     val additionalConstraints = new ArrayBuffer[(Term, BricsAutomaton)]
 
     // check whether any of the terms have concrete definitions
-//    for (t <- allTerms)
-//      for (w <- concreteValues get t) {
-//        val str : String = w.map(i => i.toChar)(breakOut)
-//        additionalConstraints += ((t, BricsAutomaton fromString str))
-//        for (ind <- term2Index get t)
-//          coveredTerms += ind
-//      }
-
     for (n <- 0 until sortedFunApps.size;
          if {
            if (!(coveredTerms contains n)) {
@@ -249,7 +241,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     .map(_.map(_._2))
     .map(_.map(_.asInstanceOf[BricsAutomaton]))
   val termSet = allInitialConstraints.groupBy(_._1).map(_._1)
-  val productInitialConstraints = termSet zip autSet.map(BricsAutomaton.productSpecially(_))
+  val productInitialConstraints = termSet zip autSet.map(BricsAutomaton.productNormally(_))
   val debug = productInitialConstraints
   //////////////////////////////////////////////////////////////////////////////
 
@@ -281,12 +273,16 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     try {
       if(Flags.useParikh)
         dfExploreComplete(funAppList)
-      else
+      else{
         dfExploreHeuri(funAppList)
+        println("hhhhhhhhhhhhhhh")
+      }
       if(Flags.nuxmvTimeout){
         println("unknow")
         System.exit(1)
       }
+//      println("unsat")
+//      System.exit(1)
       None
     } catch {
       case FoundModel(model) => Some(model)
@@ -339,7 +335,8 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       }
     }
     //derived int
-    out.println(" & "+StoreLC().toString.toUpperCase())
+    out.println(" & "+StoreLC().toString.toUpperCase()+" & TRUE")
+    StoreLC.clean()
 
     out.close()
   }
@@ -415,11 +412,13 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
   def nuxmvCompute() : Int = {
     var res = 0
-    val str = Seq("./a", "tmp.txt", Flags.nuxmvTime) .!!
+    val str = Seq("./a", Flags.strategy, "tmp.txt", Flags.nuxmvTime,Flags.windowSize) .!!
+    print(str)
     if(!str.endsWith("\n0\n"))
       // timeout
       res = 2
-    else if (str.takeRight(60).indexOf("is false") > 0)
+    else
+    if (str.contains("is false"))
       // sat
       res = 1
     else
@@ -461,13 +460,13 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       println("nuxmv compute")
       measure("nuxmv"){nuxmvCompute()} match {
         // unsat
-        case 0 => return List()
+        case 0 => List()
         // sat
         case 1 => throw FoundModel(model.toMap)
         // timeout
         case 2 => {
           Flags.nuxmvTimeout = true
-          return List()
+          List()
         }
       }
     }
@@ -521,17 +520,17 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
               newConstraints += TermConstraint(a, aut)
               // huzi add 
               AtomConstraints.addConstraints(TermConstraint(a,aut))
-
-//               constraintStores(a).assertConstraint(aut) match {
-//                 case Some(conflict) => {
-//                   consistent = false
-// //println("assertConstraint false!!!!!!!!!!!!!")
-//                   assert(!Seqs.disjointSeq(newConstraints, conflict))
-//                   collectedConflicts ++=
-//                     (conflict.iterator filterNot newConstraints)
-//                 }
-//                 case None => // nothing
-//               }
+//              constraintStores(a).addAut(aut)
+               constraintStores(a).assertConstraint(aut) match {
+                 case Some(conflict) => {
+                   consistent = false
+ //println("assertConstraint false!!!!!!!!!!!!!")
+                   assert(!Seqs.disjointSeq(newConstraints, conflict))
+                   collectedConflicts ++=
+                     (conflict.iterator filterNot newConstraints)
+                 }
+                 case None => // nothing
+               }
             }
 
 
@@ -880,8 +879,8 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
         }
 
         // find inconsistent constraints
-        // measure("AutomataUtils.findUnsatCore") { AutomataUtils.findUnsatCore(constraints, productAut,aut) } match {
-        AutomataUtils.findUnsatCore(constraints, productAut.last, aut) match {
+         measure("AutomataUtils.findUnsatCore") { AutomataUtils.findUnsatCore(constraints, productAut.last,aut) } match {
+//        AutomataUtils.findUnsatCore(constraints, productAut.last, aut) match {
           case Some(core) => {
             println("find unsat core rrrrrrrrrrrrrrrrrrrrrrrrrr")
             addIncAutomata(core)
@@ -891,15 +890,29 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
             constraints += aut
             constraintSet += aut
             productAut += productAut.last & aut
-            val c = TermConstraint(t, aut)
-//            addLengthConstraint(c, List(c))
             None
           }
         }
       }
 
-    def getContents : List[Automaton] =
-      constraints.toList
+    def getContents : List[Automaton] = {
+      val res = MHashSet[Automaton]()
+      val bricsAuts = constraints.map(AtomicStateAutomatonAdapter.intern(_).asInstanceOf[BricsAutomaton])
+      val normalAuts = bricsAuts.filter(BricsAutomaton.isNormalAut(_))
+      val lenAuts = bricsAuts.filter(BricsAutomaton.isLenAut(_))
+      val productAuts = normalAuts++lenAuts
+      if(productAuts.size > 0) res += BricsAutomaton.lenAutsProduct(productAuts)
+      //      if(normalAuts.size > 0)  normalAut = BricsAutomaton.productNormally(normalAuts)
+//      val lenAuts = bricsAuts.filter(BricsAutomaton.isLenAut(_))
+//      if(lenAuts.size > 0)  lenAut = BricsAutomaton.lenAutsProduct(lenAuts)
+      val otherAuts = bricsAuts.filter(BricsAutomaton.isOtherAut(_))
+      res ++= otherAuts
+      res.toList
+    }
+//    def getContents : List[Automaton] = {
+//      constraints.toList
+//    }
+
     def getCompleteContents : List[Automaton] =
       constraints.toList
 
