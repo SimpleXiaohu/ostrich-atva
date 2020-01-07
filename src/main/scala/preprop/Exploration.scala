@@ -45,6 +45,10 @@ object Exploration {
     def pop : Unit
 
     /**
+     * Add aut to constraintsSet for backjump cut
+     */
+    def addAut(aut : Automaton)  
+    /**
      * Add new automata to the store, return a sequence of term constraints
      * in case the asserted constraints have become inconsistent
      */
@@ -411,7 +415,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
   def nuxmvCompute() : Int = {
     var res = 0
-    val str = Seq("./solve", "tmp.txt", Flags.nuxmvTime) .!!
+    val str = Seq("./a", "tmp.txt", Flags.nuxmvTime) .!!
     if(!str.endsWith("\n0\n"))
       // timeout
       res = 2
@@ -702,13 +706,11 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
             val conflict = dfExploreCompleteOp(op, args, res, otherAuts, nextApps)
             // huzi add
             if(conflict.isEmpty)
-            //              println("ffffffffffffffffffffffffff")
-            // compute parikh image backup
               notConflict = true
             else if (Seqs.disjointSeq(newConstraints, conflict)) {
               // we can jump back, because the found conflict does not depend
               // on the considered function application
-              // println("backjump " + (conflict map { case TermConstraint(t, aut) => (t, aut.hashCode) }))
+              println("backjump " + (conflict map { case TermConstraint(t, aut) => (t, aut.hashCode) }))
               return conflict
             }
             collectedConflicts ++= (conflict.iterator filterNot newConstraints)
@@ -799,6 +801,10 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
     private val watchedAutomata = new MHashMap[Automaton, List[Int]]
 
     // huzi add: 
+    def addAut(aut : Automaton) = {
+      constraints += aut
+      constraintSet += aut
+    }
     private val productAut = new ArrayBuffer[Automaton]()
     private val productAutStack = new ArrayStack[Int]()
     // initial
