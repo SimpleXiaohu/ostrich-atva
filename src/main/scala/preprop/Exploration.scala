@@ -27,7 +27,7 @@ import ap.parser.{Internal2InputAbsy, SymbolCollector}
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.Seqs
-import strsolver.{Flags, IntConstraintStore}
+import strsolver.{Example, Flags, IntConstraintStore}
 
 import scala.collection.{breakOut, mutable}
 import scala.collection.mutable.{ArrayBuffer, ArrayStack, LinkedHashSet, BitSet => MBitSet, HashMap => MHashMap, HashSet => MHashSet}
@@ -86,20 +86,22 @@ object Exploration {
               // huzi add 
               intFunApps : Seq[(PreOp, Seq[Term], Term)],
               concreteValues : MHashMap[Term, Seq[Int]],
+              filename : String,
+              strategy : String,
               // huzi add
               initialConstraints : Seq[(Term, Automaton)],
               strictLengths : Boolean) : Exploration =
-    new LazyExploration(funApps, intFunApps, concreteValues, initialConstraints,
+    new LazyExploration(funApps, intFunApps, concreteValues, filename, strategy, initialConstraints,
                         strictLengths)
 
   private case class FoundModel(model : Map[Term, Seq[Int]]) extends Exception
 
 
   def measure[A](op : String)(comp : => A) : A =
-//    if (Flags.measureTimes)
+    if (Flags.measuretime)
      ap.util.Timer.measure(op)(comp)
-//    else
-      // comp
+    else
+       comp
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +113,8 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
                            // huzi add 
                            val intFunApps : Seq[(PreOp, Seq[Term], Term)],
                            val concreteValues : MHashMap[Term, Seq[Int]],
+                           val filename : String,
+                           val strategy : String,
                            // huzi add 
                            val initialConstraints : Seq[(Term, Automaton)],
                            strictLengths : Boolean) {
@@ -247,7 +251,8 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
 
   private val constraintStores = new MHashMap[Term, ConstraintStore]
-
+  private val atomConstraints = new AtomConstraints
+  val storeLC = new StoreLC
   def findModel : Option[Map[Term, Seq[Int]]] = {
       for (t <- allTerms)
         constraintStores.put(t, newStore(t))
@@ -261,7 +266,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         }
         // huzi add
         // Initially, add allInitialConstraints to AtomConstraints
-        AtomConstraints.addConstraints(TermConstraint(t,aut))
+        atomConstraints.addConstraints(TermConstraint(t,aut))
       }
 
     val funAppList =
@@ -275,7 +280,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         dfExploreComplete(funAppList)
       else{
         dfExploreHeuri(funAppList)
-        println("hhhhhhhhhhhhhhh")
       }
       if(Flags.nuxmvTimeout){
         println("unknow")
@@ -306,7 +310,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
   }
 
   private def printIntConstraint(atomAuts : Seq[ArrayBuffer[BricsAutomaton]]):Unit = {
-    val out = new PrintWriter(new FileWriter("tmp.txt"))
+    val out = new PrintWriter(new FileWriter(filename))
     val constantTermSet = new MHashSet[ConstantTerm]()
     constantTermSet ++= SymbolCollector constantsSorted Internal2InputAbsy(IntConstraintStore())
     for(i <- 0 to LCStack.size-1) {
@@ -315,7 +319,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         case a => constantTermSet ++= SymbolCollector.constantsSorted((a))
       }
     }
-    constantTermSet ++= SymbolCollector constantsSorted StoreLC()
+    constantTermSet ++= SymbolCollector constantsSorted storeLC()
 
     val notDeclare = getNotDeclare(atomAuts)
     out.print("declare: ")
@@ -335,8 +339,8 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       }
     }
     //derived int
-    out.println(" & "+StoreLC().toString.toUpperCase()+" & TRUE")
-    StoreLC.clean()
+    out.println(" & "+storeLC().toString.toUpperCase()+" & TRUE")
+    storeLC.clean()
 
     out.close()
   }
@@ -346,7 +350,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       .toSeq
   }
   private  def printAtomAuts(atomAuts : Seq[ArrayBuffer[BricsAutomaton]]) = {
-    val out = new PrintWriter(new FileWriter("tmp.txt", true))
+    val out = new PrintWriter(new FileWriter(filename, true))
     atomAuts.foreach{
       case auts => {
         out.println("$")
@@ -412,7 +416,11 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
   def nuxmvCompute() : Int = {
     var res = 0
-    val str = Seq("./a", Flags.strategy, "tmp.txt", Flags.nuxmvTime,Flags.windowSize) .!!
+    var str = ""
+    if(strategy == "-I")
+      str = Seq("./a", strategy, filename, Flags.nuxmvTime, "0") .!!
+    else 
+      str = Seq("./a", strategy, filename, Flags.nuxmvTime,Flags.windowSize) .!!
     print(str)
     if(!str.endsWith("\n0\n"))
       // timeout
@@ -442,11 +450,11 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         // there is no int constraints
         throw FoundModel(model.toMap)
 
-      val tmpBuffer = AtomConstraints.constraints.clone()
+      val tmpBuffer = atomConstraints.constraints.clone()
 
       // delet term which is not atom term.
       // e.g. x1 = y1·z1;  x2 = y2·z2   x1 and x2 is not atom term
-      AtomConstraints.constraints.foreach{
+      atomConstraints.constraints.foreach{
         case TermConstraint(term, a) => {
           if(notAtomTermSet(term)){
             tmpBuffer -= TermConstraint(term, a)
@@ -504,7 +512,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         val (argCS, lC) = newConstraintsWithLinear.next
 
         // huzi add
-        AtomConstraints.push
+        atomConstraints.push
         LCStack push lC
         for (a <- args){
           constraintStores(a).push
@@ -519,7 +527,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
             if (consistent) {
               newConstraints += TermConstraint(a, aut)
               // huzi add 
-              AtomConstraints.addConstraints(TermConstraint(a,aut))
+              atomConstraints.addConstraints(TermConstraint(a,aut))
 //              constraintStores(a).addAut(aut)
                constraintStores(a).assertConstraint(aut) match {
                  case Some(conflict) => {
@@ -553,7 +561,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
           for (a <- args) {
             constraintStores(a).pop
           }
-          AtomConstraints.pop
+          atomConstraints.pop
           LCStack.pop
         }
       }
@@ -584,11 +592,11 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       // there is no int constraints
         throw FoundModel(model.toMap)
 
-      val tmpBuffer = AtomConstraints.constraints.clone()
+      val tmpBuffer = atomConstraints.constraints.clone()
 
       // delet term which is not atom term.
       // e.g. x1 = y1·z1;  x2 = y2·z2   x1 and x2 is not atom term
-      AtomConstraints.constraints.foreach{
+      atomConstraints.constraints.foreach{
         case TermConstraint(term, a) => {
           if(notAtomTermSet(term)){
             tmpBuffer -= TermConstraint(term, a)
@@ -619,8 +627,8 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         }
 
         // the derived int constraints, e.g from substr and lenth relation
-        constantTermSet ++= SymbolCollector constantsSorted StoreLC()
-        addAssertion(StoreLC())
+        constantTermSet ++= SymbolCollector constantsSorted storeLC()
+        addAssertion(storeLC())
         println("product all atom automaton")
         val finalCons = getProductAuts(tmpBuffer)
         println("begin to compute parikh image")
@@ -670,7 +678,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         val (argCS, lC) = newConstraintsWithLinear.next
 
         // huzi add
-        AtomConstraints.push
+        atomConstraints.push
         LCStack push lC
         for (a <- args){
           constraintStores(a).push
@@ -685,7 +693,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
             if (consistent) {
               newConstraints += TermConstraint(a, aut)
               // huzi add
-              AtomConstraints.addConstraints(TermConstraint(a,aut))
+              atomConstraints.addConstraints(TermConstraint(a,aut))
 
               constraintStores(a).assertConstraint(aut) match {
                 case Some(conflict) => {
@@ -718,7 +726,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
           for (a <- args) {
             constraintStores(a).pop
           }
-          AtomConstraints.pop
+          atomConstraints.pop
           LCStack.pop
         }
       }
@@ -744,7 +752,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
   protected def newStore(t : Term) : ConstraintStore
 
-  // protected val needCompleteContentsForConflicts : Boolean
 
 }
 
@@ -759,10 +766,12 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
                       // huzi add 
                       _intFunApps : Seq[(PreOp, Seq[Term], Term)],
                       _concreteValues : MHashMap[Term, Seq[Int]],
+                      _filename : String,
+                      _strategy : String,
                       // huzi add
                       _initialConstraints : Seq[(Term, Automaton)],
                       _strictLengths : Boolean)
-      extends Exploration(_funApps, _intFunApps, _concreteValues, _initialConstraints,
+      extends Exploration(_funApps, _intFunApps, _concreteValues, _filename, _strategy, _initialConstraints,
                            _strictLengths) {
   import Exploration._
 
@@ -901,10 +910,7 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
       val normalAuts = bricsAuts.filter(BricsAutomaton.isNormalAut(_))
       val lenAuts = bricsAuts.filter(BricsAutomaton.isLenAut(_))
       val productAuts = normalAuts++lenAuts
-      if(productAuts.size > 0) res += BricsAutomaton.lenAutsProduct(productAuts)
-      //      if(normalAuts.size > 0)  normalAut = BricsAutomaton.productNormally(normalAuts)
-//      val lenAuts = bricsAuts.filter(BricsAutomaton.isLenAut(_))
-//      if(lenAuts.size > 0)  lenAut = BricsAutomaton.lenAutsProduct(lenAuts)
+      if(productAuts.size > 0) res += BricsAutomaton.lenAutsProduct(productAuts, storeLC)
       val otherAuts = bricsAuts.filter(BricsAutomaton.isOtherAut(_))
       res ++= otherAuts
       res.toList
@@ -935,7 +941,7 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
 }
 
 
-object AtomConstraints {
+class AtomConstraints {
 
   val constraints = new ArrayBuffer[TermConstraint]
   val constraintsStack = new ArrayStack[Int]

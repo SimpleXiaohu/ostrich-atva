@@ -15,10 +15,9 @@ class LinearConstraints{
 	override def toString = store.toString
 }
 
-object StoreLC{
+class StoreLC{
 	// the stored formula
 	val store = new mutable.HashSet[IFormula]()
-	var res : IFormula = IBoolLit(true)
 	def addFormula(f : IFormula) = {
 //		store = (f & store)
 		store += f
@@ -26,13 +25,13 @@ object StoreLC{
 
  	// return the stored formula
 	def apply() = {
+		var res : IFormula = IBoolLit(true)
 		store.foreach{
 			case f => res = f & res
 		}
 		res
 	}
 	def clean() = {
-		res = IBoolLit(true)
 		store.clear()
 	}
 

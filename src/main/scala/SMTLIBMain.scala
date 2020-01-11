@@ -40,10 +40,13 @@ object SMTLIBMain {
     var assertions = false
 
     for (str <- args) str match {
-      case CmdlParser.ValueOpt("strategy", value) =>
+      case CmdlParser.ValueOpt("strategy", value) =>{
         Flags.strategy = value
-      case CmdlParser.ValueOpt("window", value) =>
+      }
+      case CmdlParser.ValueOpt("window", value) => {
+
         Flags.windowSize = value
+      }
       case CmdlParser.ValueOpt("timeout", value) =>
         timeout = Some(value.toLong * 1000)
       case CmdlParser.ValueOpt("nuxmvtime", value) =>

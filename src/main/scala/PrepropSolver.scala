@@ -18,34 +18,20 @@
 
 package strsolver
 
-import strsolver.preprop.{AllocTTerm, AtomicStateAutomaton, Automaton, BricsAutomaton, ConcatPreOp, Exploration, IndexOfPreOp, LengthPreOp, PreOp, RRFunsToTransducer, ReplaceAllPreOp, ReplaceAllPreOpW, ReplacePreOp, ReplacePreOpW, ReversePreOp, StoreLC, SubStringPreOp, Transducer, TransducerPreOp}
-import ap.SimpleAPI
-import ap.terfor.{OneTerm, TerForConvenience, Term, TermOrder}
-import ap.terfor.preds.PredConj
-import ap.types.Sort
+import ap.parser.Internal2InputAbsy
 import ap.proof.goal.Goal
-import ap.basetypes.IdealInt
-import ap.parser.IExpression.GeqZ
-import ap.parser.{IConstant, IExpression, ITerm, Internal2InputAbsy}
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination2}
-import dk.brics.automaton.{RegExp, Automaton => BAutomaton}
-import org.sat4j.minisat.learning.NoLearningNoHeuristics
+import ap.terfor.preds.PredConj
+import ap.terfor.{OneTerm, Term}
+import dk.brics.automaton.RegExp
+import strsolver.preprop._
 
 import scala.collection.breakOut
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 class PrepropSolver {
 
-  import StringTheory.{
-    member, replaceall, replaceallre, replace, replacere,
-    reverse, wordEps, wordCat, wordChar, wordDiff, wordLen,
-    // hu zi add -----------------------------------------------
-    substring, indexof, str_contains, str_prefixof, str_at,
-    // hu zi add -----------------------------------------------
-    rexEmpty, rexEps, rexSigma,
-    rexStar, rexUnion, rexChar, rexCat, rexNeg, rexRange,
-    FunPred
-  }
+  import StringTheory._
 
   val rexOps = Set(rexEmpty, rexEps, rexSigma,
     rexStar, rexUnion, rexChar, rexCat, rexNeg, rexRange)
@@ -58,7 +44,6 @@ class PrepropSolver {
     val inputIntFormula = goal.facts.arithConj
 
     IntConstraintStore.setFormula(inputIntFormula)
-    // IntConstraintStore.setOrder(goal.order)
     implicit val order = goal.order
     val regex2AFA = new Regex2AFA(atoms)
     // P0 = length(x), then store (x, P0) to lenVar
@@ -402,15 +387,69 @@ class PrepropSolver {
 
     ////////////////////////////////////////////////////////////////////////////
 
-      val exploration =
-        Exploration.lazyExp(funApps, intFunApps, concreteWords, regexes,
+      val exploration1 =
+        Exploration.lazyExp(funApps, intFunApps, concreteWords,"tmp1.txt","-F", regexes,
            containsLength)
-
-      exploration.findModel match {
-        case Some(model) => Some((model mapValues (_.toList)) ++
-          (concreteWords mapValues (_.toList)))
-        case None => None
-      }
+       val exploration2 =
+         Exploration.lazyExp(funApps, intFunApps, concreteWords,"tmp2.txt","-I", regexes,
+           containsLength)
+       val t1 = new Example[Option[Map[Term, Seq[Int]]]](exploration1.findModel)
+       val t2 = new Example[Option[Map[Term, Seq[Int]]]](exploration2.findModel)
+       var res : Option[Map[Term, List[Int]]] = None
+       t1.start()
+       t2.start()
+       var notDone = true
+       while(notDone){
+         Thread.sleep(50)
+         if(t1.isDone){
+           t1.getRes() match {
+             case Some(model) => {
+               notDone = false
+               t2.stop()
+               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
+             }
+             case None => {
+               // do nothing
+             }
+           }
+         }
+         if(t2.isDone){
+           t1.stop()
+           t2.getRes() match {
+             case Some(model) => {
+               notDone = false
+               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
+             }
+             case None => {
+               notDone = false
+               res = None
+             }
+           }
+         }
+       }
+//       t1.getRes() match {
+//         case Some(model) => {
+//           if (t2.isAlive) {
+//             t2.interrupt()
+//           }
+//           res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
+//         }
+//         case None => {
+//           t2.join()
+//           t2.getRes() match {
+//             case Some(model) => {
+//               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
+//             }
+//             case None => res = None
+//           }
+//         }
+//       }
+     res
+//     exploration1.findModel match {
+//       case Some(model) => Some((model mapValues (_.toList)) ++
+//         (concreteWords mapValues (_.toList)))
+//       case None => None
+//     }
     
   }
 

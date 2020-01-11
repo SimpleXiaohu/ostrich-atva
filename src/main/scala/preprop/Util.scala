@@ -2,13 +2,16 @@ package strsolver.preprop
 import scala.collection.mutable
 
 object Util{
+  // ascii
+  val CharMin : Char = 0
+  val CharMax : Char = 127
 	def subtractLettersSigma(set : mutable.SortedSet[Char]) : Iterable[(Char,Char)] = {
     val s = set.toBuffer
       val size = s.size
       var res = List[(Char, Char)]()
       var min = Char.MinValue
-      val charMax = Char.MaxValue
-      val charMin = Char.MinValue
+      val charMax = CharMax
+      val charMin = CharMin
       // val charMax = 127.toChar
       // val charMin = 0.toChar
 

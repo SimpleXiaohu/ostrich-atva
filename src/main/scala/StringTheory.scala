@@ -32,7 +32,6 @@ import ap.util.Seqs
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
-
 object StringTheory extends Theory {
 
   override def toString = "StringTheory"

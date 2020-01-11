@@ -88,34 +88,8 @@ object BricsAutomaton {
   def isOtherAut(aut : BricsAutomaton) : Boolean = {
     !isLenAut(aut) && !isNormalAut(aut)
   }
-//  def lenAutsProduct(aut1 : BricsAutomaton, aut2 : BricsAutomaton) : BricsAutomaton = {
-//    val tmpaut = (aut1 & aut2).asInstanceOf[BricsAutomaton]
-//    val b = aut1.getBuilder
-//    val states = List.fill(tmpaut.states.size)(b.getNewState)
-//    val statesmap = tmpaut.states.zip(states).toMap
-//    b.setInitialState(statesmap(tmpaut.initialState))
-//    for(s <- tmpaut.states){
-//      if(tmpaut.isAccept(s)){
-//        b.setAccept(statesmap(s), true)
-//      }
-//      for((to, label) <- tmpaut.outgoingTransitions(s)){
-//        b.addTransition(statesmap(s), label, statesmap(to), List(1))
-//      }
-//    }
-//    val res = b.getAutomaton
-//    res.addEtaMaps(b.etaMap)
-//    if(aut1.registers(0)!=aut2.registers(0)) {
-//      // add new register and add formula
-//      res.addNewRegister(1)
-//      StoreLC.addFormula(res.registers(0) === aut1.registers(0) &
-//        res.registers(0) === aut2.registers(0))
-//    }else {
-//      res.addRegisters(aut1.registers)
-//    }
-//    res
-//  }
 
-  def lenAutsProduct(auts : Seq[Automaton]) : BricsAutomaton = {
+  def lenAutsProduct(auts : Seq[Automaton], storeLC : StoreLC) : BricsAutomaton = {
     val autStand = auts(0).asInstanceOf[BricsAutomaton]
     val tmpaut = auts.reduceLeft(_&_).asInstanceOf[BricsAutomaton]
     if(auts.size <= 0 )
@@ -147,7 +121,7 @@ object BricsAutomaton {
       // have registers
       res.addRegisters(autsRegSet.toList.takeRight(1))
       autsRegSet.foreach {
-        case reg => StoreLC.addFormula(res.registers(0) === reg)
+        case reg => storeLC.addFormula(res.registers(0) === reg)
       }
     }
     res
@@ -346,11 +320,11 @@ object BricsTLabelOps extends TLabelOps[(Char, Char)] {
    * Label accepting all letters
    */
   // val sigmaLabel : (Char, Char) =
-  //   (Char.MinValue, Char.MaxValue)
+  //   (Util.CharMin, Util.CharMax)
   
   //huzi modify, ascii char
   val sigmaLabel : (Char, Char) =
-    (Char.MinValue, Char.MaxValue)
+    (Util.CharMin, Util.CharMax)
 
 
   def singleton(a : Char) = (a, a)
@@ -412,8 +386,17 @@ object BricsTLabelOps extends TLabelOps[(Char, Char)] {
    */
   def shift(lbl : (Char, Char), n : Int) : (Char, Char) = {
     val (cmin, cmax) = lbl
-    (Math.max(Char.MinValue, cmin + n).toChar,
-     Math.min(Char.MaxValue, cmax + n).toChar)
+    var left = Math.max(Util.CharMin, cmin + n)   // e.g [1,3] shift -2 = [0, 1]
+    var right = Math.min(Util.CharMax, cmax + n)
+    if(right < Util.CharMin || left > Util.CharMax){
+      // e.g [1,3] shift -4 = None. [126,127] shift +3 = None
+      // illegal label
+      left = 10
+      right = 0
+    }
+    (left.toChar, right.toChar)
+//    (Math.max(Util.CharMin, cmin + n).toChar,
+//     Math.min(Util.CharMax, cmax + n).toChar)
   }
 
   /**
@@ -460,8 +443,8 @@ class BricsTLabelEnumerator(labels: Iterator[(Char, Char)])
   def enumLabelOverlap(lbl : (Char, Char)) : Iterable[(Char, Char)] = {
     val (lMin, lMax) = lbl
     disjointLabels.
-      from((lMin, Char.MinValue)).
-      to((lMax, Char.MaxValue)).
+      from((lMin, Util.CharMin)).
+      to((lMax, Util.CharMax)).
       toIterable
   }
 
@@ -517,9 +500,9 @@ class BricsTLabelEnumerator(labels: Iterator[(Char, Char)])
   private def calculateDisjointLabelsComplete() : List[(Char, Char)] = {
     val labelsComp = disjointLabels.foldRight(List[(Char, Char)]()) {
       case ((min, max), Nil) => {
-        // using Char.MaxValue since we include internal chars
-        if (max < Char.MaxValue)
-          List((min,max), ((max + 1).toChar, Char.MaxValue))
+        // using Util.CharMax since we include internal chars
+        if (max < Util.CharMax)
+          List((min,max), ((max + 1).toChar, Util.CharMax))
         else
           List((min, max))
       }
@@ -531,9 +514,9 @@ class BricsTLabelEnumerator(labels: Iterator[(Char, Char)])
           (min, max)::(minLast, maxLast)::lbls
       }
     }
-    if (Char.MinValue < labelsComp.head._1) {
+    if (Util.CharMin < labelsComp.head._1) {
       val nextMin = (labelsComp.head._1 - 1).toChar
-      (Char.MinValue, nextMin)::labelsComp
+      (Util.CharMin, nextMin)::labelsComp
     } else {
       labelsComp
     }

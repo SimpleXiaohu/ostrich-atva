@@ -261,6 +261,8 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
                     if (resAut.LabelOps.isNonEmptyLabel(shftLbl)) {
                       for (preLbl <- resAut.LabelOps.intersectLabels(shftLbl, tlbl)) {
                         //TODO
+                        val debuga = shftLbl
+                        val debugb = tlbl
                         val getV = resAut.etaMap((as, albl, asNext))
                         val vector = addVector(v,getV)
                         addWork(ps, ts, t, asNext, Post(tOp.postW, preLbl), vector)
