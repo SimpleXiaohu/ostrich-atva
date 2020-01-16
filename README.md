@@ -14,10 +14,10 @@ $ sbt assembly
 
 Run the jar with arguement
 --------------------------
-java -jar  ostrich-assembly-1.0.jar [-timeout=num] [-nuxmvtime=num] [-useparikh] [-strategy=] testfile
+$ java -jar  ostrich-assembly-1.0.jar [-timeout=num] [-nuxmvtime=num] [-useparikh] [-strategy=] testfile
 
-(have two **strategy** argument: -I and -F. -I use complete algorithm while -F use heuristic algorithm. -F is faster)
+(have two **strategy** argument: *-I* and *-F*. *-I* use complete algorithm while *-F* use heuristic algorithm. *-F* is faster)
 
 or (***recommanded***)
 
-**python script.py testfile**
+$ **python script.py testfile**
