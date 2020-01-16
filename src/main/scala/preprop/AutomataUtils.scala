@@ -18,10 +18,7 @@
 
 package strsolver.preprop
 
-import scala.collection.mutable.{HashSet => MHashSet, ArrayStack,
-                                 Stack => MStack, HashMap => MHashMap,
-                                 MultiMap, ArrayBuffer, Set => MSet}
-// import dk.brics.automaton.{Transition, State}
+import scala.collection.mutable.{ArrayBuffer, ArrayStack, MultiMap, HashMap => MHashMap, HashSet => MHashSet, Set => MSet, Stack => MStack}
 
 /**
  * Collection of useful functions for automata
@@ -118,30 +115,9 @@ object AutomataUtils {
     consideredAuts ++= oldAuts
     consideredAuts += newAut
 
-    // // add automata until we encounter a conflict
-    // var cont = areConsistentAutomata(consideredAuts)
-    // val oldAutsIt = oldAuts.iterator
-    // while (cont && oldAutsIt.hasNext) {
-    //   consideredAuts += oldAutsIt.next
-//       cont = areConsistentAutomata(consideredAuts)
-    // }
-
-    // if (cont)
-    //   return None
-
-
-    //    val prod = productAut & newAut
-    //    val debug = prod
     val consist = !(productAut & newAut).isEmpty
     if(consist)
-    return None
-    // remove automata to get a small core
-    for (i <- (consideredAuts.size - 2) to 1 by -1) {
-      val removedAut = consideredAuts remove i
-      if (areConsistentAutomata(consideredAuts))
-        consideredAuts.insert(i, removedAut)
-    }
-    //    Some(oldAuts :+ newAut)
+      return None
     Some(consideredAuts)
 
 
@@ -231,7 +207,6 @@ object AutomataUtils {
    */
   def productWithMap(auts : Seq[AtomicStateAutomaton], minimize : Boolean = false) :
     (AtomicStateAutomaton, Map[Any, Seq[Any]]) = {
-    // 空Map[Any, Seq[Any]]
     val idMap = Map[Any, Seq[Any]]().withDefault(s => Seq(s))
     productWithMaps(auts.map((_, idMap)), minimize)
   }
@@ -435,7 +410,6 @@ object AutomataUtils {
    */
   def reverse(aut : BricsAutomaton) : BricsAutomaton = {
     val builder = aut.getBuilder
-    val etaMap = new MHashMap[(aut.State, aut.TLabel, aut.State), List[Int]]
 
     val smap : Map[aut.State, aut.State] =
       aut.states.map(s => (s -> builder.getNewState))(collection.breakOut)
@@ -465,8 +439,7 @@ object AutomataUtils {
     res.addRegisters(aut.registers)
     res
   }    
-  // hu zi add ------------------------------------------------------------
-  
+
 
   /**
    * Build automaton accepting concat language of given automata
@@ -633,8 +606,6 @@ def buildEpsilons[State, TLabel](builder : AtomicStateAutomatonBuilder[State, TL
 
       closure
     }
-    val etaMap = new MHashMap[(BricsAutomaton#State, BricsAutomaton#TLabel, 
-                              BricsAutomaton#State), List[Int]]
 
     val closure = tranClose(epsilons)
     for ((ps1, ps2s) <- closure; (ps2,v) <- ps2s; if (ps1 != ps2)) {

@@ -134,13 +134,11 @@ class StringTheory (flags: Flags) extends Theory {
    val reverse    = StringTheoryVal.reverse
    val wordDiff   = StringTheoryVal.wordDiff
 
-//   hu zi add -------------------------------------------------------------------
    val substring  = StringTheoryVal.substring
    val indexof    = StringTheoryVal.indexof
    val str_contains = StringTheoryVal.str_contains
    val str_prefixof = StringTheoryVal.str_prefixof
    val str_at     = StringTheoryVal.str_at
-//   hu zi add -------------------------------------------------------------------
 
    val member     = StringTheoryVal.member
 
@@ -219,29 +217,6 @@ class StringTheory (flags: Flags) extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // val functions = List(wordEps, wordCat, wordChar, wordLen, wordSlice,
-  //                      rexEmpty, rexEps, rexSigma, rexCat, rexChar,
-  //                      rexUnion, rexStar, rexNeg, rexRange, replaceall,
-  //                      replaceallre, replace, reverse,
-  // // hu zi add -------------------------------------------------------------------
-  //                      substring, indexof, str_at) ++
-  // // hu zi add -------------------------------------------------------------------
-  //                 UserFunctionRegistry.stringTheoryFuns
-
-  // // TODO: have different theory objects for the different solvers
-  // val iAxioms =
-  //   IBoolLit(true)
-
-  // val (functionalPredicatesSeq, preAxioms, preOrder,
-  //      functionPredicateMap) =
-  //   Theory.genAxioms(theoryFunctions = functions,
-  //                    theoryAxioms = iAxioms)
-  // val functionPredicateMapping = functions zip functionalPredicatesSeq
-  // // huzi modify------------------------
-  // val order = preOrder extendPred List(member, wordDiff, str_contains)
-  // val functionalPredicates = functionalPredicatesSeq.toSet
-  // val predicates = List(member, wordDiff, str_contains, str_prefixof) ++ functionalPredicatesSeq
-  // huzi modify------------------------
   override val functionalPredicates: Set[Predicate] = StringTheoryVal.functionalPredicates
   override val functionPredicateMapping: Seq[(IFunction, Predicate)] = StringTheoryVal.functionPredicateMapping
   override val functions: Seq[IFunction] = StringTheoryVal.functions

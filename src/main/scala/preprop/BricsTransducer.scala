@@ -18,18 +18,9 @@
 
 package strsolver.preprop
 
-import scala.collection.mutable.{HashSet => MHashSet,
-                                 LinkedHashSet => MLinkedHashSet,
-                                 HashMap => MHashMap,
-                                 Stack => MStack,
-                                 MultiMap => MMultiMap,
-                                 Set => MSet}
+import dk.brics.automaton.{State => BState}
 
-import dk.brics.automaton.{Automaton => BAutomaton,
-                           State => BState,
-                           Transition => BTransition}
-
-import scala.collection.JavaConversions.{iterableAsScalaIterable,asJavaCollection}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet, LinkedHashSet => MLinkedHashSet, MultiMap => MMultiMap, Set => MSet, Stack => MStack}
 
 object BricsTransducer {
   def apply() : BricsTransducer =
@@ -80,8 +71,6 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
                internal : Iterable[(A#State, A#State)]
                  = Iterable[(A#State, A#State)]()) : BricsAutomaton =
   Exploration.measure("transducer pre-op") {
-    // TODO : output linear constraints
-    // huzi add---------------------------------------------------------------------
     val internalA = AtomicStateAutomatonAdapter.intern(aut)
 
     val resAut = internalA.asInstanceOf[BricsAutomaton]
@@ -250,8 +239,6 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
                   addWork(ps, ts, t, as, Post(tOp.postW, tlbl), v)
                 }
                 case Internal => {
-                  // TODO: set vector, now is wrong, maybe need to modify type of
-                  // internal(input), e.g internal : (state, state, vector)
                   for (asNext <- internalMap(as))
                     addWork(ps, ts, t, asNext, Post(tOp.postW, tlbl), v)
                 }
@@ -299,7 +286,6 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
           val rest = w.tail
           for ((asNext, albl) <- resAut.outgoingTransitions(as)) {
             if (resAut.LabelOps.labelContains(a, albl)){
-              // TODO
               val getV = resAut.etaMap((as, albl, asNext))
               val vector = addVector(v,getV)
               addWork(ps, ts, t, asNext, Post(rest, lbl), vector)
@@ -309,8 +295,6 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
         case Post(w, lbl) if w.isEmpty => {
           val tsNext = dest(t)
           val psNext = getState(dest(t), as)
-          // TODO
-          // etaMap += ((ps, lbl, psNext)->v)
           preBuilder.addTransition(ps, lbl, psNext, v)
 
           reachStates(tsNext, as, initVector())
@@ -320,7 +304,6 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
           val rest = w.tail
           for ((asNext, albl) <- resAut.outgoingTransitions(as)) {
             if (resAut.LabelOps.labelContains(a, albl)){
-              // TODO
               val getV = resAut.etaMap((as, albl, asNext))
               val vector = addVector(v,getV)
               addWork(ps, ts, t, asNext, EPost(rest), vector)
@@ -330,7 +313,6 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
         case EPost(w) if w.isEmpty => {
           val tsNext = dest(t)
           val psNext = getState(dest(t), as)
-          // TODO ： how to add vector when transducer is ET?, now maybe wrong
           silentTransitions.addBinding(ps, (psNext,v))
           reachStates(tsNext, as, initVector())
         }
@@ -566,7 +548,7 @@ class BricsTransducer(val initialState : BricsAutomaton#State,
       }
     }
 
-    return None
+    None
   }
 }
 

@@ -22,14 +22,11 @@ import java.io.{FileWriter, PrintWriter}
 
 import ap.SimpleAPI
 import ap.SimpleAPI.ProverStatus
-import ap.basetypes.IdealInt
 import ap.parser.{Internal2InputAbsy, SymbolCollector}
 import ap.terfor._
-import ap.terfor.linearcombination.LinearCombination
 import ap.util.Seqs
-import strsolver.{Example, Flags, IntConstraintStore}
+import strsolver.{Flags, IntConstraintStore}
 
-import scala.collection.{breakOut, mutable}
 import scala.collection.mutable.{ArrayBuffer, ArrayStack, LinkedHashSet, BitSet => MBitSet, HashMap => MHashMap, HashSet => MHashSet}
 import scala.language.postfixOps
 import scala.sys.process._
@@ -69,7 +66,6 @@ object Exploration {
      * Make sure that the exact length abstraction for the intersection of the
      * stored automata has been pushed to the length prover
      */
-//    def ensureCompleteLengthConstraints : Unit
 
     /**
      * Produce an arbitrary word accepted by all the stored constraints
@@ -84,11 +80,9 @@ object Exploration {
   }
 
   def lazyExp(funApps : Seq[(PreOp, Seq[Term], Term)],
-              // huzi add 
               intFunApps : Seq[(PreOp, Seq[Term], Term)],
               concreteValues : MHashMap[Term, Seq[Int]],
               flags: Flags,
-              // huzi add
               initialConstraints : Seq[(Term, Automaton)],
               strictLengths : Boolean) : Exploration =
     new LazyExploration(funApps, intFunApps, concreteValues, flags, initialConstraints,
@@ -110,11 +104,9 @@ object Exploration {
  * Depth-first exploration of a conjunction of function applications
  */
 abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
-                           // huzi add 
                            val intFunApps : Seq[(PreOp, Seq[Term], Term)],
                            val concreteValues : MHashMap[Term, Seq[Int]],
                            val flags: Flags,
-                           // huzi add
                            val initialConstraints : Seq[(Term, Automaton)],
                            strictLengths : Boolean) {
 
@@ -163,7 +155,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
           ((for ((op, args, _) <- appsPerRes(t)) yield (op, args), t))
     }
 
-    // huzi add
     val intApps = new ArrayBuffer[(Seq[(PreOp, Seq[Term])], Term)]
 
     for ((op, args, t) <- intFunApps; a <- args){
@@ -186,13 +177,11 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
   for ((ops, t) <- sortedFunApps)
     if (ops.size > 1) {
-//      if (ops.size > 1  && !(concreteValues contains t)) {
       printf("Mutiple definitions found for "+t+"\n")
       printf("unknow\n")
       System.exit(0)
     }
 
-//debug----------------
   println("   Considered function applications:")
   for ((apps, res) <- sortedFunApps) {
     println("   " + res + " =")
@@ -263,7 +252,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
           case Some(_) => return None
           case None    => // nothing
         }
-        // huzi add
         // Initially, add allInitialConstraints to AtomConstraints
         atomConstraints.addConstraints(TermConstraint(t,aut))
       }
@@ -284,29 +272,12 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         println("unknow")
         System.exit(0)
       }
-//      println("unsat")
-//      System.exit(0)
       None
     } catch {
       case FoundModel(model) => Some(model)
     }
   }
 
-  private def evalTerm(t : Term)(model : SimpleAPI.PartialModel)
-                      : Option[IdealInt] = t match {
-    case c : ConstantTerm =>
-      model eval c
-    case OneTerm =>
-      Some(IdealInt.ONE)
-    case lc : LinearCombination => {
-      val terms = for ((coeff, t) <- lc) yield (coeff, evalTerm(t)(model))
-      if (terms forall { case (_, None) => false
-                         case _ => true })
-        Some((for ((coeff, Some(v)) <- terms) yield (coeff * v)).sum)
-      else
-        None
-    }
-  }
 
   private def printIntConstraint(atomAuts : Seq[Seq[BricsAutomaton]]):Unit = {
     val out = new PrintWriter(new FileWriter(flags.tmpFileName))
@@ -505,17 +476,13 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         for (a <- args) yield constraintStores(a).getCompleteContents
       val collectedConflicts = new LinkedHashSet[TermConstraint]
 
-      // huzi modify
-      val (newConstraintsWithLinear, argDependencies) = 
-        // measure("pre-op") { op(argConstraints, resAut) }
-         op(argConstraints, resAut) 
+      val (newConstraintsWithLinear, argDependencies) =
+         op(argConstraints, resAut)
 
-      // while (measure("pre-op hasNext") {newConstraintsWithLinear.hasNext}) {
       while (newConstraintsWithLinear.hasNext) {
 
         val (argCS, lC) = newConstraintsWithLinear.next
 
-        // huzi add
         atomConstraints.push
         LCStack push lC
         for (a <- args){
@@ -530,13 +497,10 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
           for ((a, aut) <- args zip argCS)
             if (consistent) {
               newConstraints += TermConstraint(a, aut)
-              // huzi add 
               atomConstraints.addConstraints(TermConstraint(a,aut))
-//              constraintStores(a).addAut(aut)
                constraintStores(a).assertConstraint(aut) match {
                  case Some(conflict) => {
                    consistent = false
- //println("assertConstraint false!!!!!!!!!!!!!")
                    assert(!Seqs.disjointSeq(newConstraints, conflict))
                    collectedConflicts ++=
                      (conflict.iterator filterNot newConstraints)
@@ -552,14 +516,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
             // huzi add
             if(conflict.isEmpty)
               notConflict = true
-//            else if (Seqs.disjointSeq(newConstraints, conflict)) {
-//              // we can jump back, because the found conflict does not depend
-//              // on the considered function application
-// //println("backjump " + (conflict map { case TermConstraint(t, aut) => (t, aut.hashCode) }))
-//              println("backjmp")
-//              return conflict
-//            }
-//             collectedConflicts ++= (conflict.iterator filterNot newConstraints)
           }
         } finally {
           for (a <- args) {
@@ -612,9 +568,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       SimpleAPI.withProver{ p=>
         import p._
         val constantTermSet = new MHashSet[ConstantTerm]()
-
-        // println("output parikh formula")
-        // parikhIntFormula.foreach{case formula => {SMTLineariser((formula)); println()}}
 
         // the input int constraints
         val inputIntFormula = IntConstraintStore()
@@ -681,7 +634,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
         val (argCS, lC) = newConstraintsWithLinear.next
 
-        // huzi add
         atomConstraints.push
         LCStack push lC
         for (a <- args){
@@ -696,7 +648,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
           for ((a, aut) <- args zip argCS)
             if (consistent) {
               newConstraints += TermConstraint(a, aut)
-              // huzi add
               atomConstraints.addConstraints(TermConstraint(a,aut))
 
               constraintStores(a).assertConstraint(aut) match {
@@ -715,7 +666,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
           if (consistent) {
             val conflict = dfExploreCompleteOp(op, args, res, otherAuts, nextApps)
-            // huzi add
             if(conflict.isEmpty)
               notConflict = true
             else if (Seqs.disjointSeq(newConstraints, conflict)) {
@@ -737,11 +687,6 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       // while end--------------------------------------------------------------------------------------------------------
 
 
-      // if (needCompleteContentsForConflicts)
-      //   collectedConflicts ++=
-      //     (for (aut <- constraintStores(res).getCompleteContents)
-      //      yield TermConstraint(res, aut))
-      // else
       if(!notConflict) {
         collectedConflicts += TermConstraint(res, resAut)
 
@@ -885,10 +830,7 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
           val autInd = potentialConflicts.head
 
           if (!watchAutomata(inconsistentAutomata(autInd), autInd)) {
-            // constraints have become inconsistent!  
-            // huzi : is this really happen? line 653(the fisrt if else) guarantee that
-            // constraintSet do not contains aut, so watchAutomata always return true in this
-            // code block
+            // constraints have become inconsistent!
 
             watchedAutomata.put(aut, potentialConflicts)
             println("Stored conflict applies!")
@@ -901,7 +843,6 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
 
         // find inconsistent constraints
          measure("AutomataUtils.findUnsatCore") { AutomataUtils.findUnsatCore(constraints, productAut.last,aut) } match {
-//        AutomataUtils.findUnsatCore(constraints, productAut.last, aut) match {
           case Some(core) => {
             println("find unsat core rrrrrrrrrrrrrrrrrrrrrrrrrr")
             addIncAutomata(core)
@@ -922,9 +863,6 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
       val bricsAuts = constraints.map(AtomicStateAutomatonAdapter.intern(_).asInstanceOf[BricsAutomaton])
       getOptimalAuts(bricsAuts)
     }
-//    def getContents : List[Automaton] = {
-//      constraints.toList
-//    }
 
     def getCompleteContents : List[Automaton] =
       constraints.toList

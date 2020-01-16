@@ -14,9 +14,7 @@ object SubStringPreOp{
 
 
 class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends PreOp{
-  // TODO : add logic
   def getSpecialPre(j: ITerm, reslen: ITerm, xlen:ITerm, resAut: BricsAutomaton) : Iterator[(Seq[Automaton], LinearConstraints)] = {
-    println("handle substr special case")
     val a = new LinearConstraints
     val b = resAut.getBuilder
     val tmpList = List.fill(resAut.registers.size)(0)
@@ -103,7 +101,6 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
     if(i == LinearCombination.ZERO){
       // i == 0
       if(j == OneTerm){
-        println("-------------------------")
         val res = BricsAutomaton.concat(res1,BricsAutomaton.makeAnyString())
         if(resContainElp){
           return (Iterator((Seq(res),a),(Seq(BricsAutomaton.fromString("")),a)),List())
@@ -117,7 +114,6 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
     }
     if(i.toString == xlen.toString+" + -1" && j == OneTerm){
       // i = xlen - 1, i.e the last position of string x
-      println("=============")
       val res = BricsAutomaton.concat(BricsAutomaton.makeAnyString(), res1)
       if(resContainElp){
         return (Iterator((Seq(res),a),(Seq(BricsAutomaton.fromString("")),a)),List())
@@ -184,15 +180,9 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
           otherLable.foreach(
             builder.addTransition(sMap(fs), _, infiniteCycleS, List(0,0) ++ tmpList)
           )
-//          if (builder.etaMap.contains((sMap(fs), sigma, sMap(fs)))) {
-//            needIFCS = true
-//            builder.addTransition(sMap(fs), sigma, infiniteCycleS, List(0, 0) ++ tmpList)
-//          } else
-//            builder.addTransition(sMap(fs), sigma, sMap(fs), List(0, 0) ++ tmpList)
         }
       }
     }
-//    if(needIFCS)
     builder.addTransition(infiniteCycleS,sigma,infiniteCycleS, List(0,0)++tmpList)
     val res = builder.getAutomaton
     res.addEtaMaps(builder.etaMap)

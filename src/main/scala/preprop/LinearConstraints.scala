@@ -2,7 +2,6 @@ package strsolver.preprop
 import ap.parser._
 
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, ArrayStack}
 
 class LinearConstraints{
 	// the stored formula

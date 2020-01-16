@@ -45,7 +45,6 @@ object SMTReader {
 /** This class is borrowed from Eldarica,
     https://github.com/uuverifiers/eldarica  */
 class SMTReader(fileName: String) {
-  import SMTReader._
 
   private val reader = new java.io.BufferedReader (
     new java.io.FileReader(new java.io.File (fileName)))
@@ -69,8 +68,6 @@ class SMTReader(fileName: String) {
       }}
 
   val bitwidth = parser.observedBitwidth getOrElse 8
-//debug----------------
-  // Console.err.println("Assuming bit-vectors of width " + bitwidth)
 
   def elimEqv(aF : ap.parser.IFormula) : ap.parser.IFormula = {
     aF match {

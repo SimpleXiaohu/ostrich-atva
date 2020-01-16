@@ -19,13 +19,8 @@
 package strsolver
 
 import ap.terfor.Term
-import ap.terfor.preds.{Predicate, Atom, PredConj}
-
-import dk.brics.automaton.{BasicAutomata, BasicOperations, RegExp,
-                           Automaton}
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
+import ap.terfor.preds.PredConj
+import dk.brics.automaton.{Automaton, RegExp}
 
 class Regex2AFA(atoms : PredConj) {
   import StringTheoryVal._

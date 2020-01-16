@@ -29,13 +29,11 @@ object ReversePreOp extends PreOp {
             resultConstraint : Automaton)
           : (Iterator[(Seq[Automaton], LinearConstraints)], Seq[Seq[Automaton]]) =
     resultConstraint match {
-      // huzi add ----------------------------------------------------------------------
       case resultConstraint : BricsAutomaton => {
         val a = new LinearConstraints
         val reverseAut = ReverseBAutomaton(resultConstraint)
         (Iterator((Seq(reverseAut), a)), List())
       }
-      // huzi add ----------------------------------------------------------------------
 
       case _ =>
         throw new IllegalArgumentException

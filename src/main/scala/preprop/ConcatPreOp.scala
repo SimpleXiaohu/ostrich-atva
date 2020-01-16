@@ -18,11 +18,6 @@
 
 package strsolver.preprop
 
-import ap.terfor.{Term, Formula, TermOrder, TerForConvenience}
-
-import scala.collection.JavaConversions.{asScalaIterator,
-                                         iterableAsScalaIterable}
-
 
 /**
  * Pre-image computation for the concatenation operator.
@@ -34,7 +29,6 @@ object ConcatPreOp extends PreOp {
             resultConstraint : Automaton)
           : (Iterator[(Seq[Automaton], LinearConstraints)], Seq[Seq[Automaton]]) =
     resultConstraint match {
-//       huzi modify
        case resultConstraint : AtomicStateAutomaton => {
          // processes states in det order so long as the automaton's
          // .states method returns them in a deterministic order (this is
@@ -63,13 +57,11 @@ object ConcatPreOp extends PreOp {
                val splitB = InitFinalAutomaton.setInitial(resultConstraint, s)
                val a = new LinearConstraints
                for(i<-0 to splitA.registers.length-1){
-                 //                  val t = AllocTTerm()
 
                   val internRes = AtomicStateAutomatonAdapter.intern(resultConstraint)
                  val r = internRes.asInstanceOf[BricsAutomaton].registers(i)
                  val r1 = splitA.registers(i)
                  val r2 = splitB.registers(i)
-                 // println("r1=:   "+r1 + ",\tr2=:  "+r2+",\tformula=:  "+r+"="+r1+"+"+r2 )
                  a.addFormula(r === r1+r2)
                }
                (List(splitA,
@@ -134,12 +126,6 @@ object ConcatPreOp extends PreOp {
   def eval(arguments : Seq[Seq[Int]]) : Option[Seq[Int]] =
     Some(arguments(0) ++ arguments(1))
 
-  override def lengthApproximation(arguments : Seq[Term], result : Term,
-                                   order : TermOrder) : Formula = {
-    import TerForConvenience._
-    implicit val _ = order
-    result === arguments(0) + arguments(1)
-  }
 
   override def forwardApprox(argumentConstraints : Seq[Seq[Automaton]]) : Automaton = {
     val fstCons = argumentConstraints(0).map(_ match {

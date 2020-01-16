@@ -18,11 +18,8 @@
 
 package strsolver.preprop
 
-import ap.parser.ITerm
-
-import scala.collection.mutable.{ArrayBuffer, ArrayStack, MultiMap, HashMap => MHashMap, HashSet => MHashSet, LinkedHashSet => MLinkedHashSet, Set => MSet}
+import scala.collection.mutable.{ArrayStack, HashMap => MHashMap, HashSet => MHashSet, LinkedHashSet => MLinkedHashSet}
 import scala.collection.{Set => GSet}
-import dk.brics.automaton.{State => BState}
 
 
 object AtomicStateAutomatonAdapter {
@@ -103,12 +100,10 @@ abstract class AtomicStateAutomatonAdapter[A <: AtomicStateAutomaton]
   }
 
   def internalise : AtomicStateAutomaton = underlying match {
-    // hu zi add -------------------------------------------------------------
     case a : BricsAutomaton => {
       type Transition = (BricsAutomaton#State, BricsAutomaton#TLabel, BricsAutomaton#State)
       val builder = a.getBuilder
       val smap = new MHashMap[underlying.State, a.State]
-      val etaMap = new MHashMap[Transition, List[Int]]
 
       for (s <- states)
         smap.put(s, builder.getNewState)
@@ -122,10 +117,6 @@ abstract class AtomicStateAutomatonAdapter[A <: AtomicStateAutomaton]
           val vector = a.etaMap(transition)
 
           builder.addTransition(t, label.asInstanceOf[BricsAutomaton#TLabel], smap(to), vector)
-          // val builderTransition = (t.asInstanceOf[BricsAutomaton#State],
-          //   label.asInstanceOf[BricsAutomaton#TLabel],
-          //   smap(to).asInstanceOf[BricsAutomaton#State])
-          // etaMap += (builderTransition -> vector)
         }
         builder.setAccept(t, isAccept(s))
       }
@@ -137,7 +128,6 @@ abstract class AtomicStateAutomatonAdapter[A <: AtomicStateAutomaton]
       res.asInstanceOf[BricsAutomaton].setRegisters(registers)
       res
     }
-    // hu zi add -------------------------------------------------------------
   }
 
   def getTransducerBuilder : TransducerBuilder[State, TLabel] =
@@ -162,7 +152,6 @@ abstract class AtomicStateAutomatonAdapter[A <: AtomicStateAutomaton]
   def outgoingTransitions(from : State) : Iterator[(State, TLabel)] =
     underlying.outgoingTransitions(from)
 
-  // huzi add
   override val registers = underlying.registers
 }
 
@@ -216,7 +205,6 @@ case class _InitFinalAutomaton[A <: AtomicStateAutomaton]
                               val _initialState : A#State,
                               val _acceptingStates : Set[A#State])
      extends AtomicStateAutomatonAdapter[A](_underlying) {
-  import AtomicStateAutomatonAdapter.intern
 
   override lazy val initialState = _initialState.asInstanceOf[State]
 
@@ -233,7 +221,6 @@ case class _InitFinalAutomaton[A <: AtomicStateAutomaton]
          if _states contains s)
     yield p
   }
-  // huzi add
   override val registers = _underlying.asInstanceOf[BricsAutomaton].cloneRegisters
 
 }
@@ -292,7 +279,6 @@ case class PostImageAutomaton[A <: AtomicStateAutomaton]
                               tran : Transducer,
                               internalAut : Option[A] = None)
     extends AtomicStateAutomatonAdapter[AtomicStateAutomaton](
-    // extends AtomicStateAutomatonAdapter[A](
       tran.postImage(inAut, internalAut)
     ) { }
 
@@ -325,7 +311,6 @@ case class NestedAutomaton(inner: AtomicStateAutomaton,
     ) { }
 
 
-// huzi add ----------------------------------------------------------------------
 /**
  * Case class representation of AutomataUtils.reverse
  */
@@ -333,4 +318,3 @@ case class ReverseBAutomaton(aut : BricsAutomaton)
     extends AtomicStateAutomatonAdapter[BricsAutomaton](
       AutomataUtils.reverse(aut)
     ) { }
-// huzi add ----------------------------------------------------------------------
