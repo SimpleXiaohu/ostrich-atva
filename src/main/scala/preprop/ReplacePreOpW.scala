@@ -169,8 +169,6 @@ object ReplacePreOpWRegEx {
     val builder = aut.getTransducerBuilder
     val nop = OutputOp("", NOP, "")
     val copy = OutputOp("", Plus(0), "")
-    // huzi modify
-    // val internal = OutputOp("", Internal, "")
     val outputW = OutputOp("", NOP, word.map(_.toChar))
 
     // TODO: encapsulate this worklist automaton construction

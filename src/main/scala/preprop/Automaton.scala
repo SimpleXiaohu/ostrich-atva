@@ -18,14 +18,11 @@
 
 package strsolver.preprop
 
-import ap.basetypes.IdealInt
-import ap.PresburgerTools
 import ap.parser.ITerm
-import ap.terfor.{Formula, OneTerm, TerForConvenience, Term, TermOrder}
-import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.terfor.Formula
+import ap.terfor.conjunctions.Conjunction
 
-import scala.collection.mutable.{ArrayBuffer, ArrayStack, BitSet => MBitSet, HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, ArrayStack, HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Interface for different implementations of finite-state automata.

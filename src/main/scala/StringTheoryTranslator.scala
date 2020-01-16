@@ -19,6 +19,7 @@
 package strsolver
 
 import ap.parser._
+
 import scala.collection.mutable.{HashSet => MHashSet}
 
 object StringTheoryTranslator {
@@ -264,7 +265,6 @@ class StringTheoryTranslator private (constraint : IFormula,
     }
 
     case IAtom(SMTLIBPred(`seq_extract`), _) => {
-    // hu zi modify and add --------------------------------------------------------------
       IAtom(toPred(stringTheory.substring), toTermSeq(subres))
     }
     case IAtom(SMTLIBPred(`seq_indexof`), _) => {
@@ -277,26 +277,8 @@ class StringTheoryTranslator private (constraint : IFormula,
       IAtom(stringTheory.str_prefixof, toTermSeq(subres))
     }    
     case IAtom(SMTLIBPred(`smtparse_at`), _) => {
-      // two different implementation:
-      // 1. convert str.at to str.substr
       IAtom(toPred(stringTheory.str_at), toTermSeq(subres))
-      // 2. covert str.at to len and cat
-      // val Seq(full, index, res) = toTermSeq(subres)
-      // val pref, substr, b, c, prefLen, substrLen, fullLen = newConstant
-      // guardedExpr(toPred(stringTheory.wordCat)(substr, b, c) &
-      //   toPred(stringTheory.wordCat)(pref, c, full) &
-      //   toPred(stringTheory.wordLen)(pref, prefLen) &
-      //   toPred(stringTheory.wordLen)(substr, substrLen) &
-      //   toPred(stringTheory.wordLen)(full, fullLen) &
-      //   ((index >= 0) ==>
-      //     ((prefLen <= fullLen) &
-      //       (prefLen === index) &
-      //         (substrLen === 1))) &
-      //   ((index < 0) ==> (prefLen === 0)) ,
-      //   substr === res,
-      //   ctxt)
-    }    
-    // hu zi add -------------------------------------------------------------------------
+    }
 
     case IAtom(SMTLIBPred(`seq_length`), _) =>
       IAtom(toPred(stringTheory.wordLen), toTermSeq(subres))
@@ -431,13 +413,11 @@ class StringTheoryTranslator private (constraint : IFormula,
           case c : IConstant => wordVariables += c
           case _ => // nothing
         }
-//huzi add-----------------------------
       case IAtom(StringPred(stringTheory.indexof), args) =>
         for (c <- args) c match {
           case c : IConstant => wordVariables += c
           case _ => 
         }
-//huzi add-----------------------------
       case IAtom(StringPred(stringTheory.replaceallre), args) =>
         for (c <- Iterator(args(0), args(2))) c match {
           case c : IConstant => wordVariables += c

@@ -110,30 +110,23 @@ class PrepropSolver(flags: Flags) {
       case `str_contains` => {
         if (concreteWords.contains(a.last)) {
           val str = concreteWords(a.last).map(_.toChar).mkString
-          println("str.contains(" + a.head + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
           val anyStrAut1 = BricsAutomaton.makeAnyString
           val anyStrAut2 = BricsAutomaton.makeAnyString
           regexes += ((a.head, BricsAutomaton.concat(List(anyStrAut1, tmpAut, anyStrAut2))))
         } else {
-          println("str_contains not -----------------concreate word")
           println("unknow")
           System.exit(0)
         }
       }
 
       case `str_prefixof` => {
-        println("a is " + a)
-        println("a.head is " + a.head)
         if (concreteWords.contains(a.head)) {
-          println("concreate word " + concreteWords(a.head))
           val str = concreteWords(a.head).map(_.toChar).mkString
-          println("str.prefix(" + a.last + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
           val anyStrAut = BricsAutomaton.makeAnyString
           regexes += ((a.last, BricsAutomaton.concat(List(tmpAut, anyStrAut))))
         } else {
-          println("str_prefixof not -----------------concreate word")
           println("unknow")
           System.exit(0)
         }
@@ -199,7 +192,6 @@ class PrepropSolver(flags: Flags) {
         regexValue(a(1), regex2AFA) match {
           case Left(w) =>
             if (concreteWords contains (a(2))) {
-              // println("handle replace-re func with replacement of concreteword")
               val word = (regex2AFA buildStrings a(2)).next.map(_.left.get)
               funApps += ((ReplacePreOpW(w, word), List(a(0), a(2)), a(3)))
             } else {
@@ -209,7 +201,6 @@ class PrepropSolver(flags: Flags) {
             }
           case Right(aut) =>
             if (concreteWords contains (a(2))) {
-              // println("handle replace-re func with replacement of concreteword")
               val word = (regex2AFA buildStrings a(2)).next.map(_.left.get)
               funApps += ((ReplacePreOpW(aut, word), List(a(0), a(2)), a(3)))
             } else {
@@ -288,7 +279,6 @@ class PrepropSolver(flags: Flags) {
         funApps += ((TransducerPreOp(RRFunsToTransducer.get(pred).get),
           List(a(0)), a(1)))
       case p if (predicates contains p) =>
-      // Console.err.println("Warning: ignoring " + a)
       case _ =>
       // nothing
     }
@@ -299,24 +289,18 @@ class PrepropSolver(flags: Flags) {
       case `str_contains` => {
         if (concreteWords.contains(a.last)) {
           val str = concreteWords(a.last).map(_.toChar).mkString
-          println("!str.contains(" + a.head + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
           val anyStrAut1 = BricsAutomaton.makeAnyString
           val anyStrAut2 = BricsAutomaton.makeAnyString
           regexes += ((a.head, !BricsAutomaton.concat(List(anyStrAut1, tmpAut, anyStrAut2))))
         } else {
-          println("str_contains not -----------------concreate word")
           println("unknow")
           System.exit(0)
         }
       }
       case `str_prefixof` => {
-        println("a is " + a)
-        println("a.head is " + a.head)
         if (concreteWords.contains(a.head)) {
-          println("concreate word " + concreteWords(a.head))
           val str = concreteWords(a.head).map(_.toChar).mkString
-          println("str.prefix(" + a.last + "," + str + ")")
           val tmpAut = BricsAutomaton.fromString(str)
           val anyStrAut = BricsAutomaton.makeAnyString
           regexes += ((a.last, !BricsAutomaton.concat(List(tmpAut, anyStrAut))))
@@ -389,61 +373,6 @@ class PrepropSolver(flags: Flags) {
       val exploration1 =
         Exploration.lazyExp(funApps, intFunApps, concreteWords,flags, regexes,
            containsLength)
-//       val exploration2 =
-//         Exploration.lazyExp(funApps, intFunApps, concreteWords,"tmp2.txt","-I", regexes,
-//           containsLength)
-//       val t1 = new Example[Option[Map[Term, Seq[Int]]]](exploration1.findModel)
-//       val t2 = new Example[Option[Map[Term, Seq[Int]]]](exploration2.findModel)
-//       var res : Option[Map[Term, List[Int]]] = None
-//       t1.start()
-//       t2.start()
-//       var notDone = true
-//       while(notDone){
-//         Thread.sleep(5)
-//         if(t1.isDone){
-//           t1.getRes() match {
-//             case Some(model) => {
-//               notDone = false
-//               t2.interrupt()
-//               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
-//             }
-//             case None => {
-//               // do nothing
-//             }
-//           }
-//         }
-//         if(t2.isDone){
-//           t1.interrupt()
-//           t2.getRes() match {
-//             case Some(model) => {
-//               notDone = false
-//               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
-//             }
-//             case None => {
-//               notDone = false
-//               res = None
-//             }
-//           }
-//         }
-//       }
-//       t1.getRes() match {
-//         case Some(model) => {
-//           if (t2.isAlive) {
-//             t2.interrupt()
-//           }
-//           res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
-//         }
-//         case None => {
-//           t2.join()
-//           t2.getRes() match {
-//             case Some(model) => {
-//               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
-//             }
-//             case None => res = None
-//           }
-//         }
-//       }
-//     res
      exploration1.findModel match {
        case Some(model) => Some((model mapValues (_.toList)) ++
          (concreteWords mapValues (_.toList)))
@@ -527,11 +456,11 @@ class PrepropSolver(flags: Flags) {
       val baut = new RegExp(sregex, RegExp.NONE).toAutomaton(true)
       val w = baut.getSingleton
       if (w != null)
-        return Left(w)
+        Left(w)
       else
-        return Right(new BricsAutomaton(baut))
+        Right(new BricsAutomaton(baut))
     } else {
-      return Right(BricsAutomaton(regex2AFA buildRegex regex))
+      Right(BricsAutomaton(regex2AFA buildRegex regex))
     }
   }
 }

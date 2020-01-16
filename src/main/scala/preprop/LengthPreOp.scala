@@ -1,7 +1,5 @@
 package strsolver.preprop
-import ap.basetypes.IdealInt
-import ap.parser.{ITerm, InputAbsy2Internal}
-import ap.terfor.Term
+import ap.parser.ITerm
 // import ap.parser
 
 object LengthPreOp{

@@ -18,20 +18,17 @@
 
 package strsolver
 
-import ap.SimpleAPI
 import ap.basetypes.IdealInt
 import ap.parameters.ParserSettings
 import ap.parser._
 import ap.terfor.preds.Predicate
 import ap.theories._
-import scala.collection.mutable.{HashSet => MHashSet}
-
 import strsolver.preprop.RRFunsToTransducer
 
 object SMTLIBStringParser {
 
-  import SMTParser2InputAbsy._
   import IExpression.{Sort => TSort}
+  import SMTParser2InputAbsy._
 
   case class SMTSeq(element : SMTType)   extends SMTType {
     def toSort = TSort.Integer // TODO

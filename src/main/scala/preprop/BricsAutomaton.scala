@@ -25,7 +25,6 @@ import dk.brics.automaton.{BasicAutomata, BasicOperations, RegExp, Transition, A
 import strsolver.Regex2AFA
 
 import scala.collection.JavaConversions.{asScalaIterator, iterableAsScalaIterable}
-import scala.collection.JavaConverters._
 import scala.collection.immutable.List
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, HashSet => MHashSet, LinkedHashSet => MLinkedHashSet, MultiMap => MMultiMap, Set => MSet, Stack => MStack, TreeSet => MTreeSet}
 
@@ -58,13 +57,10 @@ object BricsAutomaton {
   def fromString(str : String) : BricsAutomaton =
     new BricsAutomaton(BasicAutomata makeString str)
 
-//  def makeEmptyString() : BricsAutomaton =
-//    new BricsAutomaton(BasicAutomata makeEmptyString())
   /**
    * A new automaton that accepts any string
    */
   def makeAnyString() : BricsAutomaton = {
-//      new BricsAutomaton(BAutomaton.makeAnyString)
     val builder = new BricsAutomatonBuilder
     val initState = builder.getNewState
     val Sigma = builder.LabelOps.sigmaLabel
@@ -76,7 +72,6 @@ object BricsAutomaton {
   }
 
 
-  // huzi add -------------------------------------------
   def isLenAut(aut : BricsAutomaton) : Boolean = {
     aut.etaMap.values.forall{
       case l => l==List(1)
@@ -301,7 +296,6 @@ object BricsAutomaton {
     val res = builder.getAutomaton
     res.addEtaMaps(builder.etaMap)
     res.setRegisters(registers)
-// have not removeDeadTranstions
     res
   }
 }
@@ -319,10 +313,6 @@ object BricsTLabelOps extends TLabelOps[(Char, Char)] {
   /**
    * Label accepting all letters
    */
-  // val sigmaLabel : (Char, Char) =
-  //   (Util.CharMin, Util.CharMax)
-  
-  //huzi modify, ascii char
   val sigmaLabel : (Char, Char) =
     (Util.CharMin, Util.CharMax)
 
@@ -395,8 +385,6 @@ object BricsTLabelOps extends TLabelOps[(Char, Char)] {
       right = 0
     }
     (left.toChar, right.toChar)
-//    (Math.max(Util.CharMin, cmin + n).toChar,
-//     Math.min(Util.CharMax, cmax + n).toChar)
   }
 
   /**
@@ -537,9 +525,6 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
 
   override def toString : String = underlying.toString
 
-  // hu zi add ---------------------------------------------------------------------------------------------------------------
-//  val registers : ArrayBuffer[ITerm]= ArrayBuffer()  // or maybe ArrayBuffer[ConstantTerm]
-  // registers += AllocRegisterTerm()  //debug
   // (q', σ, q, η) tuple, stored as a map
   val etaMap = new MHashMap[(State, TLabel, State), List[Int]]
 
@@ -776,7 +761,6 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
   def removeDeadTranstions() : Unit = {
 
   }
-  // hu zi add ------------------------------------------------------------------------------------------------------
 
   /**
    * Union

@@ -1,10 +1,8 @@
 package strsolver.preprop
-import ap.basetypes.IdealInt
 import ap.parser.{ITerm, Internal2InputAbsy}
 import ap.terfor.Term
 import ap.terfor.linearcombination.LinearCombination
 
-import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, SortedSet}
 
 // i = indexof(x,u,j),

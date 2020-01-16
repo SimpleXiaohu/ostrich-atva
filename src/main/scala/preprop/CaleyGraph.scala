@@ -20,9 +20,7 @@ package strsolver.preprop
 
 import java.util.Objects
 
-import scala.collection.mutable.{HashMap, HashSet, Set, Stack, MultiMap}
-import scala.collection.JavaConversions._
-import scala.collection.IterableView
+import scala.collection.mutable.{HashMap, HashSet, MultiMap, Set, Stack}
 
 object Box {
   /**

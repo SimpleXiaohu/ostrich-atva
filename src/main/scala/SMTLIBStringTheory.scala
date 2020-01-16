@@ -58,12 +58,10 @@ object SMTLIBStringTheory extends Theory {
   val seq_replace_all_re = new IFunction("seq_replace_all_re", 3, true, false)
 
   val seq_reverse     = new IFunction("seq_reverse",   1, true, false)
-  // hu zi add ------------------------------------------------------------
   val seq_indexof     = new IFunction("seq_indexof",   3, true, false)
   val smtparse_contains    = new Predicate("smtparse_contains",  2)
   val smtparse_prefixof    = new Predicate("smtparse_prefixof",  2)
   val smtparse_at     = new IFunction("smtparse_at",   2, true, false)
-  // hu zi add ------------------------------------------------------------
   // Regexes
 
   val re_empty_set    = new IFunction("re_empty_set",  0, true, false)
@@ -99,18 +97,14 @@ object SMTLIBStringTheory extends Theory {
     re_union, re_difference, re_intersect, re_complement,
     re_of_pred, seq_replace, seq_replace_re, seq_replace_all, seq_replace_all_re,
     seq_reverse,
-  // hu zi add ------------------------------------------------------------
     seq_indexof, smtparse_at ) ++ UserFunctionRegistry.SMTLIBStringTheoryFuns
-  // hu zi add ------------------------------------------------------------
 
   val (predicates, functionPredicateMapping, functionalPredicates) = {
     val functionEnc = new FunctionEncoder (true, false)
     val predicates = for (f <- functions) yield (functionEnc addFunction f)
     val allPredicates =
       List(seq_prefix_of, seq_suffix_of, seq_subseq_of, re_member, 
-    // hu zi add ------------------------------------------------------------
       smtparse_contains, smtparse_prefixof) ::: predicates
-    // hu zi add ------------------------------------------------------------
 
     (allPredicates,
       functions zip predicates,
