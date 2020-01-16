@@ -18,6 +18,11 @@
 
 package strsolver.preprop
 
+<<<<<<< HEAD
+=======
+import ap.terfor.{Formula, Term, TermOrder}
+
+>>>>>>> origin/master
 
 /**
  * Pre-image computation for the concatenation operator.
@@ -126,6 +131,14 @@ object ConcatPreOp extends PreOp {
   def eval(arguments : Seq[Seq[Int]]) : Option[Seq[Int]] =
     Some(arguments(0) ++ arguments(1))
 
+<<<<<<< HEAD
+=======
+  override def lengthApproximation(arguments : Seq[Term], result : Term,
+                                   order : TermOrder) : Formula = {
+    implicit val _ = order
+    result === arguments(0) + arguments(1)
+  }
+>>>>>>> origin/master
 
   override def forwardApprox(argumentConstraints : Seq[Seq[Automaton]]) : Automaton = {
     val fstCons = argumentConstraints(0).map(_ match {
