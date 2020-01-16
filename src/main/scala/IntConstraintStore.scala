@@ -1,9 +1,7 @@
 package strsolver
 
 
-import ap.parser._
-import ap.terfor.{Formula, TermOrder}
-import ap.terfor.preds.Predicate
+import ap.terfor.Formula
 
 //store the input int constraints 
 object IntConstraintStore{

@@ -19,26 +19,20 @@
 package strsolver
 
 import ap._
+import ap.basetypes.IdealInt
 import ap.parser._
-import ap.theories._
-import ap.basetypes.{IdealInt, Tree}
-import ap.proof.theoryPlugins.Plugin
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
-import ap.terfor._
-import ap.terfor.preds.{PredConj, Predicate, Atom => PAtom}
-import ap.terfor.linearcombination.LinearCombination
 import ap.proof.goal.Goal
+import ap.proof.theoryPlugins.Plugin
+import ap.terfor._
+import ap.terfor.conjunctions.Conjunction
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.preds.{Predicate, Atom => PAtom}
+import ap.theories._
 import ap.util.Seqs
 
-import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, LinkedHashSet, HashMap => MHashMap, HashSet => MHashSet}
-object StringTheory extends Theory {
-
-  override def toString = "StringTheory"
-
-  // TODO: use proper sorts for the operations
-                                //  name     arity partial relational
-                                //    ↓        ↓    ↓     ↓
+object StringTheoryVal  {
+  
   val wordEps    = new IFunction("wordEps",    0, true, false)
   val wordCat    = new IFunction("wordCat",    2, true, false)
   val wordChar   = new IFunction("wordChar",   1, true, false)
@@ -75,6 +69,80 @@ object StringTheory extends Theory {
   // hu zi add -------------------------------------------------------------------
 
   val member     = new Predicate ("member",    2)
+  val functions = List(wordEps, wordCat, wordChar, wordLen, wordSlice,
+    rexEmpty, rexEps, rexSigma, rexCat, rexChar,
+    rexUnion, rexStar, rexNeg, rexRange, replaceall,
+    replaceallre, replace, reverse,
+    // hu zi add -------------------------------------------------------------------
+    substring, indexof, str_at) ++
+    // hu zi add -------------------------------------------------------------------
+    UserFunctionRegistry.stringTheoryFuns
+
+  // TODO: have different theory objects for the different solvers
+  val iAxioms =
+    IBoolLit(true)
+
+  val (functionalPredicatesSeq, preAxioms, preOrder,
+  functionPredicateMap) =
+    Theory.genAxioms(theoryFunctions = functions,
+      theoryAxioms = iAxioms)
+
+  val functionPredicateMapping = functions zip functionalPredicatesSeq
+  // huzi modify------------------------
+  val order = preOrder extendPred List(member, wordDiff, str_contains)
+  val functionalPredicates = functionalPredicatesSeq.toSet
+  val predicates = List(member, wordDiff, str_contains, str_prefixof) ++ functionalPredicatesSeq
+  private val predFunMap =
+    (for ((f, p) <- functionPredicateMap) yield (p, f)).toMap
+  object FunPred {
+    def unapply(p : Predicate) : Option[IFunction] = predFunMap get p
+  }
+}
+
+class StringTheory (flags: Flags) extends Theory {
+
+  override def toString = "StringTheory"
+  import StringTheoryVal._
+
+  // TODO: use proper sorts for the operations
+                                //  name     arity partial relational
+                                //    ↓        ↓    ↓     ↓
+   val wordEps    = StringTheoryVal.wordEps
+   val wordCat    = StringTheoryVal.wordCat
+   val wordChar   = StringTheoryVal.wordChar
+
+   val wordLen    = StringTheoryVal.wordLen
+
+//   defined operation
+   val wordSlice  = StringTheoryVal.wordSlice
+
+   val rexEmpty   = StringTheoryVal.rexEmpty
+   val rexEps     = StringTheoryVal.rexEps
+   val rexSigma   = StringTheoryVal.rexSigma
+   val rexCat     = StringTheoryVal.rexCat
+   val rexChar    = StringTheoryVal.rexChar
+   val rexUnion   = StringTheoryVal.rexUnion
+   val rexStar    = StringTheoryVal.rexStar
+   val rexNeg     = StringTheoryVal.rexNeg
+   val rexRange   = StringTheoryVal.rexRange
+
+//  / Constraints representing transducers
+   val replaceall = StringTheoryVal.replaceall
+   val replaceallre = StringTheoryVal.replaceallre
+   val replace    = StringTheoryVal.replace
+   val replacere  = StringTheoryVal.replacere
+   val reverse    = StringTheoryVal.reverse
+   val wordDiff   = StringTheoryVal.wordDiff
+
+//   hu zi add -------------------------------------------------------------------
+   val substring  = StringTheoryVal.substring
+   val indexof    = StringTheoryVal.indexof
+   val str_contains = StringTheoryVal.str_contains
+   val str_prefixof = StringTheoryVal.str_prefixof
+   val str_at     = StringTheoryVal.str_at
+//   hu zi add -------------------------------------------------------------------
+
+   val member     = StringTheoryVal.member
 
   def word(ts : AnyRef*) = {
     import IExpression._
@@ -151,35 +219,37 @@ object StringTheory extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val functions = List(wordEps, wordCat, wordChar, wordLen, wordSlice,
-                       rexEmpty, rexEps, rexSigma, rexCat, rexChar,
-                       rexUnion, rexStar, rexNeg, rexRange, replaceall,
-                       replaceallre, replace, reverse,
-  // hu zi add -------------------------------------------------------------------
-                       substring, indexof, str_at) ++
-  // hu zi add -------------------------------------------------------------------
-                  UserFunctionRegistry.stringTheoryFuns
+  // val functions = List(wordEps, wordCat, wordChar, wordLen, wordSlice,
+  //                      rexEmpty, rexEps, rexSigma, rexCat, rexChar,
+  //                      rexUnion, rexStar, rexNeg, rexRange, replaceall,
+  //                      replaceallre, replace, reverse,
+  // // hu zi add -------------------------------------------------------------------
+  //                      substring, indexof, str_at) ++
+  // // hu zi add -------------------------------------------------------------------
+  //                 UserFunctionRegistry.stringTheoryFuns
 
-  // TODO: have different theory objects for the different solvers
-  val iAxioms =
-    IBoolLit(true)
+  // // TODO: have different theory objects for the different solvers
+  // val iAxioms =
+  //   IBoolLit(true)
 
-  val (functionalPredicatesSeq, preAxioms, preOrder,
-       functionPredicateMap) =
-    Theory.genAxioms(theoryFunctions = functions,
-                     theoryAxioms = iAxioms)
-
-  val functionPredicateMapping = functions zip functionalPredicatesSeq
+  // val (functionalPredicatesSeq, preAxioms, preOrder,
+  //      functionPredicateMap) =
+  //   Theory.genAxioms(theoryFunctions = functions,
+  //                    theoryAxioms = iAxioms)
+  // val functionPredicateMapping = functions zip functionalPredicatesSeq
+  // // huzi modify------------------------
+  // val order = preOrder extendPred List(member, wordDiff, str_contains)
+  // val functionalPredicates = functionalPredicatesSeq.toSet
+  // val predicates = List(member, wordDiff, str_contains, str_prefixof) ++ functionalPredicatesSeq
   // huzi modify------------------------
-  val order = preOrder extendPred List(member, wordDiff, str_contains)
-  val functionalPredicates = functionalPredicatesSeq.toSet
-  val predicates = List(member, wordDiff, str_contains, str_prefixof) ++ functionalPredicatesSeq
-  // huzi modify------------------------
+  override val functionalPredicates: Set[Predicate] = StringTheoryVal.functionalPredicates
+  override val functionPredicateMapping: Seq[(IFunction, Predicate)] = StringTheoryVal.functionPredicateMapping
+  override val functions: Seq[IFunction] = StringTheoryVal.functions
+  override val predicates: Seq[Predicate] = StringTheoryVal.predicates
   val totalityAxioms = Conjunction.TRUE
 
   private val predFunMap =
     (for ((f, p) <- functionPredicateMap) yield (p, f)).toMap
-
   object FunPred {
     def unapply(p : Predicate) : Option[IFunction] = predFunMap get p
   }
@@ -212,7 +282,7 @@ object StringTheory extends Theory {
     ////////////////////////////////////////////////////////////////////////////
 
     // private val afaSolver = new AFASolver
-    private val prepropSolver = new PrepropSolver
+    private val prepropSolver = new PrepropSolver(flags)
 
     private val modelCache =
       new ap.util.LRUCache[Conjunction,
@@ -246,126 +316,6 @@ object StringTheory extends Theory {
 
       case _ => List()
     }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    override def generateModel(goal : Goal)
-                              : Option[Conjunction] = { // Console.withOut(Console.err) {
-
-        import TerForConvenience._
-        implicit val _ = goal.order
-        val atoms = goal.facts.predConj
-
-        ////////////////////////////////////////////////////////////////////////
-
-        val definedStrings = new MHashMap[Seq[Int], Int]
-        val stringDefPreds = new ArrayBuffer[Formula]
-
-        def idFor(s : Seq[Int]) =
-          definedStrings.getOrElseUpdate(s, definedStrings.size)
-
-        def addString(s : List[Int]) : Int = s match {
-          case List() => {
-            val id = idFor(List())
-            stringDefPreds += p(wordEps)(List(l(id)))
-            id
-          }
-          case c :: rem => {
-            val remId = addString(rem)
-            val cId = idFor(List(c))
-            val sId = idFor(s)
-            stringDefPreds += p(wordChar)(List(l(c), l(cId)))
-            stringDefPreds += p(wordCat)(List(l(cId), l(remId), l(sId)))
-            sId
-          }
-        }
-
-        ////////////////////////////////////////////////////////////////////////
-
-        val stringMap = new MHashMap[ConstantTerm, Seq[Int]]
-
-        for (a <- atoms positiveLitsWithPred p(wordEps))
-          stringMap.put(asConst(a(0)), List())
-
-        for (a <- atoms positiveLitsWithPred p(wordChar);
-             if (a(0).isConstant))
-          stringMap.put(asConst(a(1)), List(a(0).constant.intValueSafe))
-
-        // Add solutions from the string solver, if there are any
-        findStringModel(goal) match {
-          case None => throw new IllegalArgumentException(
-                         "string solver unexpectedly says unsat")
-          case Some(stringModel) => {
-            for ((t, w) <- stringModel) {
-              val lhs = t match {
-                case c : ConstantTerm => c
-                case lh : LinearCombination if lh.size == 1 =>
-                  lh.leadingTerm.asInstanceOf[ConstantTerm]
-              }
-              stringMap.put(lhs, w map (_.left.get))
-            }
-          }
-        }
-
-        // initially set all undefined variables to the empty string
-        for (a <- (atoms positiveLitsWithPred p(wordCat)).iterator;
-             c <- a.constants.iterator;
-             if (!(stringMap contains c)))
-          stringMap.put(c, List())
-
-        // fixed-point computation taking care of concatenation
-        var changed = true
-        var maxIterationNum = (atoms positiveLitsWithPred p(wordCat)).size
-
-        while (changed) {
-          changed = false
-
-          if (maxIterationNum < 0) {
-            // we should not need this many iterations, something must be wrong
-            println(goal.facts)
-            println(stringMap.toList)
-            throw new Exception("Could not construct satisfying assignment")
-          }
-
-          for (a <- atoms positiveLitsWithPred p(wordCat))
-            for (s0 <- stringMap get asConst(a(0));
-                 s1 <- stringMap get asConst(a(1)))
-              if (stringMap(asConst(a(2))) != s0 ++ s1) {
-                stringMap.put(asConst(a(2)), s0 ++ s1)
-                changed = true
-              }
-
-          maxIterationNum = maxIterationNum - 1
-        }
-
-        // add definition for the resulting strings
-        for ((c, s) <- stringMap)
-          stringDefPreds += (c === addString(s.toList))
-
-        // add definitions for characters used in atoms wordChar(a, b)
-        for (a <- (atoms positiveLitsWithPred p(wordChar)).iterator;
-             if (!a(0).isConstant))
-          (stringMap get asConst(a(1))) match {
-            case Some(Seq(c)) => stringDefPreds += (a(0) === c)
-            case _ => assert(false)
-          }
-
-        // add values for word lengths
-        for (a <- atoms positiveLitsWithPred p(wordLen))
-          for (s <- stringMap get asConst(a(0)))
-            stringDefPreds += (a(1) === s.size)
-
-        val definingPreds = conj(stringDefPreds)
-// println(definingPreds)
-        val predsToRemove = predicates.toSet -- List(p(wordEps), p(wordCat), p(wordChar))
-        val newAtoms =
-          atoms.updateLitsSubset(atoms.positiveLits filterNot {
-                                   a => predsToRemove contains a.pred },
-                                 atoms.negativeLits filterNot {
-                                   a => predsToRemove contains a.pred },
-                                 goal.order)
-        Some(goal.facts.updatePredConj(newAtoms) & definingPreds)
-      }
   })
 
   //////////////////////////////////////////////////////////////////////////////

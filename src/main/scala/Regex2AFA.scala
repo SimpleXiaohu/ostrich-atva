@@ -28,7 +28,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 class Regex2AFA(atoms : PredConj) {
-  import StringTheory._
+  import StringTheoryVal._
   private val p = functionPredicateMap
 
   private def numToUnicode(num : Int) : String =

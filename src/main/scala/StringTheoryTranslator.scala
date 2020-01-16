@@ -25,9 +25,10 @@ object StringTheoryTranslator {
 
   def apply(formula : IFormula,
             globalWordVariables :
-            Iterable[IExpression.ConstantTerm]) : IFormula = {
+            Iterable[IExpression.ConstantTerm],
+            stringTheory: StringTheory) : IFormula = {
     ~(new StringTheoryTranslator(~formula, List(),
-      globalWordVariables)).newConstraint
+      globalWordVariables, stringTheory)).newConstraint
   }
 
 }
@@ -35,13 +36,14 @@ object StringTheoryTranslator {
 class StringTheoryTranslator private (constraint : IFormula,
                                       interestingAtoms : Seq[IAtom],
                                       globalWordVariables :
-                                      Iterable[IExpression.ConstantTerm])
+                                      Iterable[IExpression.ConstantTerm],
+                                      stringTheory : StringTheory)
   extends ContextAwareVisitor[Unit, IExpression] {
 
   import IExpression._
   import SMTLIBStringTheory._
 
-  private val toPred = StringTheory.functionPredicateMapping.toMap
+  private val toPred = stringTheory.functionPredicateMapping.toMap
 
   private object SMTLIBPred {
     val reverseMapping =
@@ -148,71 +150,71 @@ class StringTheoryTranslator private (constraint : IFormula,
     case IExpression.Eq(c : IConstant, d)
       if (charVariables contains c) => {
       val a, b = newConstant
-      guardedExpr(toPred(StringTheory.wordChar)(c, a) &
-        toPred(StringTheory.wordChar)(d, b),
+      guardedExpr(toPred(stringTheory.wordChar)(c, a) &
+        toPred(stringTheory.wordChar)(d, b),
         a === b,
         ctxt)
     }
     case IExpression.Eq(d, c : IConstant)
       if (charVariables contains c) => {
       val a, b = newConstant
-      guardedExpr(toPred(StringTheory.wordChar)(c, a) &
-        toPred(StringTheory.wordChar)(d, b),
+      guardedExpr(toPred(stringTheory.wordChar)(c, a) &
+        toPred(stringTheory.wordChar)(d, b),
         a === b,
         ctxt)
     }
     case IAtom(SMTLIBPred(`seq_unit`), _) =>
-      IAtom(toPred(StringTheory.wordChar), toTermSeq(subres))
+      IAtom(toPred(stringTheory.wordChar), toTermSeq(subres))
     case IAtom(SMTLIBPred(`seq_empty`), _) =>
-      IAtom(toPred(StringTheory.wordEps), toTermSeq(subres))
+      IAtom(toPred(stringTheory.wordEps), toTermSeq(subres))
     case IAtom(SMTLIBPred(`seq_concat`), _) =>
-      IAtom(toPred(StringTheory.wordCat), toTermSeq(subres))
+      IAtom(toPred(stringTheory.wordCat), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`seq_cons`), _) => {
       val Seq(head, tail, res) = toTermSeq(subres)
       val c = newConstant
-      guardedExpr(toPred(StringTheory.wordChar)(head, c),
-        toPred(StringTheory.wordCat)(c, tail, res),
+      guardedExpr(toPred(stringTheory.wordChar)(head, c),
+        toPred(stringTheory.wordCat)(c, tail, res),
         ctxt)
     }
     case IAtom(SMTLIBPred(`seq_rev_cons`), _) => {
       val Seq(first, last, res) = toTermSeq(subres)
       val c = newConstant
-      guardedExpr(toPred(StringTheory.wordChar)(last, c),
-        toPred(StringTheory.wordCat)(first, c, res),
+      guardedExpr(toPred(stringTheory.wordChar)(last, c),
+        toPred(stringTheory.wordCat)(first, c, res),
         ctxt)
     }
     case IAtom(SMTLIBPred(`seq_head`), _) => {
       val Seq(str, head) = toTermSeq(subres)
       val a, b, c = newConstant
-      guardedExpr(toPred(StringTheory.wordChar)(c, a) &
-        toPred(StringTheory.wordCat)(a, b, str),
+      guardedExpr(toPred(stringTheory.wordChar)(c, a) &
+        toPred(stringTheory.wordCat)(a, b, str),
         c === head,
         ctxt)
     }
     case IAtom(SMTLIBPred(`seq_tail`), _) => {
       val Seq(str, tail) = toTermSeq(subres)
       val a, b, sigma = newConstant
-      guardedExpr(toPred(StringTheory.rexSigma)(sigma) &
-        StringTheory.member(a, sigma) &
-        toPred(StringTheory.wordCat)(a, b, str),
+      guardedExpr(toPred(stringTheory.rexSigma)(sigma) &
+        stringTheory.member(a, sigma) &
+        toPred(stringTheory.wordCat)(a, b, str),
         b === tail,
         ctxt)
     }
     case IAtom(SMTLIBPred(`seq_last`), _) => {
       val Seq(str, last) = toTermSeq(subres)
       val a, b, c = newConstant
-      guardedExpr(toPred(StringTheory.wordChar)(c, a) &
-        toPred(StringTheory.wordCat)(b, a, str),
+      guardedExpr(toPred(stringTheory.wordChar)(c, a) &
+        toPred(stringTheory.wordCat)(b, a, str),
         c === last,
         ctxt)
     }
     case IAtom(SMTLIBPred(`seq_first`), _) => {
       val Seq(str, first) = toTermSeq(subres)
       val a, b, sigma = newConstant
-      guardedExpr(toPred(StringTheory.rexSigma)(sigma) &
-        StringTheory.member(a, sigma) &
-        toPred(StringTheory.wordCat)(b, a, str),
+      guardedExpr(toPred(stringTheory.rexSigma)(sigma) &
+        stringTheory.member(a, sigma) &
+        toPred(stringTheory.wordCat)(b, a, str),
         b === first,
         ctxt)
     }
@@ -220,13 +222,13 @@ class StringTheoryTranslator private (constraint : IFormula,
     case IAtom(`seq_prefix_of`, _) => {
       val Seq(shorter, longer) = toTermSeq(subres)
       polChoice(ctxt) {
-        toPred(StringTheory.wordCat)(shorter, newConstant, longer)
+        toPred(stringTheory.wordCat)(shorter, newConstant, longer)
       } {
         val a, b, aLen, shorterLen, longerLen = newConstant
-        (toPred(StringTheory.wordLen)(shorter, shorterLen) &
-          toPred(StringTheory.wordLen)(longer, longerLen) &
-          toPred(StringTheory.wordCat)(a, b, longer) &
-          toPred(StringTheory.wordLen)(a, aLen) &
+        (toPred(stringTheory.wordLen)(shorter, shorterLen) &
+          toPred(stringTheory.wordLen)(longer, longerLen) &
+          toPred(stringTheory.wordCat)(a, b, longer) &
+          toPred(stringTheory.wordLen)(a, aLen) &
           (aLen <= shorterLen) & (aLen <= longerLen) &
           ((aLen === shorterLen) | (aLen === longerLen))) ==>
           (a === shorter)
@@ -235,13 +237,13 @@ class StringTheoryTranslator private (constraint : IFormula,
     case IAtom(`seq_suffix_of`, _) => {
       val Seq(shorter, longer) = toTermSeq(subres)
       polChoice(ctxt) {
-        toPred(StringTheory.wordCat)(newConstant, shorter, longer)
+        toPred(stringTheory.wordCat)(newConstant, shorter, longer)
       } {
         val a, b, aLen, shorterLen, longerLen = newConstant
-        (toPred(StringTheory.wordLen)(shorter, shorterLen) &
-          toPred(StringTheory.wordLen)(longer, longerLen) &
-          toPred(StringTheory.wordCat)(b, a, longer) &
-          toPred(StringTheory.wordLen)(a, aLen) &
+        (toPred(stringTheory.wordLen)(shorter, shorterLen) &
+          toPred(stringTheory.wordLen)(longer, longerLen) &
+          toPred(stringTheory.wordCat)(b, a, longer) &
+          toPred(stringTheory.wordLen)(a, aLen) &
           (aLen <= shorterLen) & (aLen <= longerLen) &
           ((aLen === shorterLen) | (aLen === longerLen))) ==>
           (a === shorter)
@@ -251,8 +253,8 @@ class StringTheoryTranslator private (constraint : IFormula,
       val Seq(shorter, longer) = toTermSeq(subres)
       polChoice(ctxt) {
         val a, b, c = newConstant
-        toPred(StringTheory.wordCat)(shorter, b, c) &
-          toPred(StringTheory.wordCat)(a, c, longer)
+        toPred(stringTheory.wordCat)(shorter, b, c) &
+          toPred(stringTheory.wordCat)(a, c, longer)
       } {
         // this can be done if "shorter" is a concrete string;
         // for a word variable this looks difficult?
@@ -263,29 +265,29 @@ class StringTheoryTranslator private (constraint : IFormula,
 
     case IAtom(SMTLIBPred(`seq_extract`), _) => {
     // hu zi modify and add --------------------------------------------------------------
-      IAtom(toPred(StringTheory.substring), toTermSeq(subres))
+      IAtom(toPred(stringTheory.substring), toTermSeq(subres))
     }
     case IAtom(SMTLIBPred(`seq_indexof`), _) => {
-      IAtom(toPred(StringTheory.indexof), toTermSeq(subres))
+      IAtom(toPred(stringTheory.indexof), toTermSeq(subres))
     }
     case IAtom(`smtparse_contains`, _) => {
-      IAtom(StringTheory.str_contains, toTermSeq(subres))
+      IAtom(stringTheory.str_contains, toTermSeq(subres))
     }
     case IAtom(`smtparse_prefixof`, _) => {
-      IAtom(StringTheory.str_prefixof, toTermSeq(subres))
+      IAtom(stringTheory.str_prefixof, toTermSeq(subres))
     }    
     case IAtom(SMTLIBPred(`smtparse_at`), _) => {
       // two different implementation:
       // 1. convert str.at to str.substr
-      IAtom(toPred(StringTheory.str_at), toTermSeq(subres))
+      IAtom(toPred(stringTheory.str_at), toTermSeq(subres))
       // 2. covert str.at to len and cat
       // val Seq(full, index, res) = toTermSeq(subres)
       // val pref, substr, b, c, prefLen, substrLen, fullLen = newConstant
-      // guardedExpr(toPred(StringTheory.wordCat)(substr, b, c) &
-      //   toPred(StringTheory.wordCat)(pref, c, full) &
-      //   toPred(StringTheory.wordLen)(pref, prefLen) &
-      //   toPred(StringTheory.wordLen)(substr, substrLen) &
-      //   toPred(StringTheory.wordLen)(full, fullLen) &
+      // guardedExpr(toPred(stringTheory.wordCat)(substr, b, c) &
+      //   toPred(stringTheory.wordCat)(pref, c, full) &
+      //   toPred(stringTheory.wordLen)(pref, prefLen) &
+      //   toPred(stringTheory.wordLen)(substr, substrLen) &
+      //   toPred(stringTheory.wordLen)(full, fullLen) &
       //   ((index >= 0) ==>
       //     ((prefLen <= fullLen) &
       //       (prefLen === index) &
@@ -297,89 +299,89 @@ class StringTheoryTranslator private (constraint : IFormula,
     // hu zi add -------------------------------------------------------------------------
 
     case IAtom(SMTLIBPred(`seq_length`), _) =>
-      IAtom(toPred(StringTheory.wordLen), toTermSeq(subres))
+      IAtom(toPred(stringTheory.wordLen), toTermSeq(subres))
 
     ////////////////////////////////////////////////////////////////////////////
 
     case IAtom(SMTLIBPred(`re_empty_set`), _) =>
-      IAtom(toPred(StringTheory.rexEmpty), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexEmpty), toTermSeq(subres))
     case IAtom(SMTLIBPred(`re_full_set`), _) => {
       val Seq(res) = toTermSeq(subres)
       val sigma = newConstant
-      guardedExpr(toPred(StringTheory.rexSigma)(sigma),
-        toPred(StringTheory.rexStar)(sigma, res),
+      guardedExpr(toPred(stringTheory.rexSigma)(sigma),
+        toPred(stringTheory.rexStar)(sigma, res),
         ctxt)
     }
     case IAtom(SMTLIBPred(`re_allchar`), _) =>
-      IAtom(toPred(StringTheory.rexSigma), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexSigma), toTermSeq(subres))
     case IAtom(SMTLIBPred(`re_concat`), _) =>
-      IAtom(toPred(StringTheory.rexCat), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexCat), toTermSeq(subres))
     case IAtom(SMTLIBPred(`re_empty_seq`), _) =>
-      IAtom(toPred(StringTheory.rexEps), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexEps), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`re_star`), _) =>
-      IAtom(toPred(StringTheory.rexStar), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexStar), toTermSeq(subres))
     case IAtom(SMTLIBPred(`re_loop`), _) =>
       assert(false); null
     case IAtom(SMTLIBPred(`re_plus`), _) => {
       val Seq(arg, res) = toTermSeq(subres)
       val a = newConstant
-      guardedExpr(toPred(StringTheory.rexStar)(arg, a),
-        toPred(StringTheory.rexCat)(arg, a, res),
+      guardedExpr(toPred(stringTheory.rexStar)(arg, a),
+        toPred(stringTheory.rexCat)(arg, a, res),
         ctxt)
     }
     case IAtom(SMTLIBPred(`re_option`), _) => {
       val Seq(arg, res) = toTermSeq(subres)
       val a = newConstant
-      guardedExpr(toPred(StringTheory.rexEps)(a),
-        toPred(StringTheory.rexUnion)(arg, a, res),
+      guardedExpr(toPred(stringTheory.rexEps)(a),
+        toPred(stringTheory.rexUnion)(arg, a, res),
         ctxt)
     }
     case IAtom(SMTLIBPred(`re_range`), _) =>
-      IAtom(toPred(StringTheory.rexRange), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexRange), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`re_union`), _) =>
-      IAtom(toPred(StringTheory.rexUnion), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexUnion), toTermSeq(subres))
     case IAtom(SMTLIBPred(`re_difference`), _) => {
       val Seq(x, y, res) = toTermSeq(subres)
       val xNeg, xyNeg = newConstant
-      guardedExpr(toPred(StringTheory.rexNeg)(x, xNeg) &
-        toPred(StringTheory.rexUnion)(xNeg, y, xyNeg),
-        toPred(StringTheory.rexNeg)(xyNeg, res),
+      guardedExpr(toPred(stringTheory.rexNeg)(x, xNeg) &
+        toPred(stringTheory.rexUnion)(xNeg, y, xyNeg),
+        toPred(stringTheory.rexNeg)(xyNeg, res),
         ctxt)
     }
     case IAtom(SMTLIBPred(`re_intersect`), _) => {
       val Seq(x, y, res) = toTermSeq(subres)
       val xNeg, yNeg, xyNeg = newConstant
-      guardedExpr(toPred(StringTheory.rexNeg)(x, xNeg) &
-        toPred(StringTheory.rexNeg)(y, yNeg) &
-        toPred(StringTheory.rexUnion)(xNeg, yNeg, xyNeg),
-        toPred(StringTheory.rexNeg)(xyNeg, res),
+      guardedExpr(toPred(stringTheory.rexNeg)(x, xNeg) &
+        toPred(stringTheory.rexNeg)(y, yNeg) &
+        toPred(stringTheory.rexUnion)(xNeg, yNeg, xyNeg),
+        toPred(stringTheory.rexNeg)(xyNeg, res),
         ctxt)
     }
     case IAtom(SMTLIBPred(`re_complement`), _) =>
-      IAtom(toPred(StringTheory.rexNeg), toTermSeq(subres))
+      IAtom(toPred(stringTheory.rexNeg), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`re_of_pred`), _) =>
       assert(false); null
 
     case IAtom(`re_member`, _) =>
-      IAtom(StringTheory.member, toTermSeq(subres))
+      IAtom(stringTheory.member, toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`seq_replace`), _) =>
-      IAtom(toPred(StringTheory.replace), toTermSeq(subres))
+      IAtom(toPred(stringTheory.replace), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`seq_replace_re`), _) =>
-      IAtom(toPred(StringTheory.replacere), toTermSeq(subres))
+      IAtom(toPred(stringTheory.replacere), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`seq_replace_all`), _) =>
-      IAtom(toPred(StringTheory.replaceall), toTermSeq(subres))
+      IAtom(toPred(stringTheory.replaceall), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`seq_replace_all_re`), _) =>
-      IAtom(toPred(StringTheory.replaceallre), toTermSeq(subres))
+      IAtom(toPred(stringTheory.replaceallre), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(`seq_reverse`), _) =>
-      IAtom(toPred(StringTheory.reverse), toTermSeq(subres))
+      IAtom(toPred(stringTheory.reverse), toTermSeq(subres))
 
     case IAtom(SMTLIBPred(f), _)
         if (UserFunctionRegistry.isUserDefinedSMTLIBFun(f.name)) => {
@@ -423,32 +425,32 @@ class StringTheoryTranslator private (constraint : IFormula,
       case IAtom(SMTLIBPred(`re_of_seq`),
       Seq(c : IConstant, _)) =>
         regexVariables += c
-      case IAtom(StringPred(StringTheory.replace | StringTheory.replaceall
-                            | StringTheory.reverse), args) =>
+      case IAtom(StringPred(stringTheory.replace | stringTheory.replaceall
+                            | stringTheory.reverse), args) =>
         for (c <- args) c match {
           case c : IConstant => wordVariables += c
           case _ => // nothing
         }
 //huzi add-----------------------------
-      case IAtom(StringPred(StringTheory.indexof), args) =>
+      case IAtom(StringPred(stringTheory.indexof), args) =>
         for (c <- args) c match {
           case c : IConstant => wordVariables += c
           case _ => 
         }
 //huzi add-----------------------------
-      case IAtom(StringPred(StringTheory.replaceallre), args) =>
+      case IAtom(StringPred(stringTheory.replaceallre), args) =>
         for (c <- Iterator(args(0), args(2))) c match {
           case c : IConstant => wordVariables += c
           case _ => // nothing
         }
-      case IAtom(StringPred(StringTheory.wordLen),
+      case IAtom(StringPred(stringTheory.wordLen),
       Seq(c : IConstant, _)) =>
         wordVariables += c
-      case IAtom(StringTheory.member,
+      case IAtom(stringTheory.member,
       Seq(c : IConstant, _)) =>
         wordVariables += c
 
-      case IAtom(StringPred(StringTheory.wordCat),
+      case IAtom(StringPred(stringTheory.wordCat),
       Seq(c : IConstant, d : IConstant, e : IConstant)) => {
         if ((wordVariables contains c) ||
           (wordVariables contains d) ||
@@ -502,27 +504,27 @@ class StringTheoryTranslator private (constraint : IFormula,
         val mapped = ConstantSubstVisitor(f, wordVariableDupl)
         if (mapped == f) f else f & mapped
       }
-      case f@IAtom(StringPred(StringTheory.wordEps), Seq(c : IConstant)) =>
+      case f@IAtom(StringPred(stringTheory.wordEps), Seq(c : IConstant)) =>
         and((if ((wordVariables contains c) ||
           !(regexVariables contains c)) List(f update subres) else List()) ++
           (if (regexVariables contains c)
-            List(ConstantSubstVisitor(IAtom(toPred(StringTheory.rexEps),
+            List(ConstantSubstVisitor(IAtom(toPred(stringTheory.rexEps),
               toTermSeq(subres)),
               wordVariableDupl))
           else List()))
-      case f@IAtom(StringPred(StringTheory.wordChar), Seq(_, c : IConstant)) =>
+      case f@IAtom(StringPred(stringTheory.wordChar), Seq(_, c : IConstant)) =>
         and((if ((wordVariables contains c) ||
           !(regexVariables contains c)) List(f update subres) else List()) ++
           (if (regexVariables contains c)
-            List(ConstantSubstVisitor(IAtom(toPred(StringTheory.rexChar),
+            List(ConstantSubstVisitor(IAtom(toPred(stringTheory.rexChar),
               toTermSeq(subres)),
               wordVariableDupl))
           else List()))
-      case f@IAtom(StringPred(StringTheory.wordCat), Seq(_, _, c : IConstant)) =>
+      case f@IAtom(StringPred(stringTheory.wordCat), Seq(_, _, c : IConstant)) =>
         and((if ((wordVariables contains c) ||
           !(regexVariables contains c)) List(f update subres) else List()) ++
           (if (regexVariables contains c)
-            List(ConstantSubstVisitor(IAtom(toPred(StringTheory.rexCat),
+            List(ConstantSubstVisitor(IAtom(toPred(stringTheory.rexCat),
               toTermSeq(subres)),
               wordVariableDupl))
           else List()))

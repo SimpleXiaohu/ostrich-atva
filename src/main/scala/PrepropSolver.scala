@@ -29,18 +29,17 @@ import strsolver.preprop._
 import scala.collection.breakOut
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
-class PrepropSolver {
-
-  import StringTheory._
+class PrepropSolver(flags: Flags) {
+  import StringTheoryVal._
 
   val rexOps = Set(rexEmpty, rexEps, rexSigma,
     rexStar, rexUnion, rexChar, rexCat, rexNeg, rexRange)
 
-  private val p = StringTheory.functionPredicateMap
+  private val p = functionPredicateMap
 
   def findStringModel(goal: Goal): Option[Map[Term, List[Int]]] = {
     val atoms = goal.facts.predConj
-    // 将输入中的整数约束提取出来
+    // integer constraints
     val inputIntFormula = goal.facts.arithConj
 
     IntConstraintStore.setFormula(inputIntFormula)
@@ -119,7 +118,7 @@ class PrepropSolver {
         } else {
           println("str_contains not -----------------concreate word")
           println("unknow")
-          System.exit(1)
+          System.exit(0)
         }
       }
 
@@ -136,7 +135,7 @@ class PrepropSolver {
         } else {
           println("str_prefixof not -----------------concreate word")
           println("unknow")
-          System.exit(1)
+          System.exit(0)
         }
       }
       // huzi add----------------------------------------------------------
@@ -288,7 +287,7 @@ class PrepropSolver {
       case pred if (RRFunsToTransducer get pred).isDefined =>
         funApps += ((TransducerPreOp(RRFunsToTransducer.get(pred).get),
           List(a(0)), a(1)))
-      case p if (StringTheory.predicates contains p) =>
+      case p if (predicates contains p) =>
       // Console.err.println("Warning: ignoring " + a)
       case _ =>
       // nothing
@@ -308,7 +307,7 @@ class PrepropSolver {
         } else {
           println("str_contains not -----------------concreate word")
           println("unknow")
-          System.exit(1)
+          System.exit(0)
         }
       }
       case `str_prefixof` => {
@@ -324,10 +323,10 @@ class PrepropSolver {
         } else {
           println("str_prefixof not -----------------concreate word")
           println("unknow")
-          System.exit(1)
+          System.exit(0)
         }
       }
-      case p if (StringTheory.predicates contains p) =>
+      case p if (predicates contains p) =>
         Console.err.println("Warning: ignoring !" + a)
       case _ =>
       // nothing
@@ -388,45 +387,45 @@ class PrepropSolver {
     ////////////////////////////////////////////////////////////////////////////
 
       val exploration1 =
-        Exploration.lazyExp(funApps, intFunApps, concreteWords,"tmp1.txt","-F", regexes,
+        Exploration.lazyExp(funApps, intFunApps, concreteWords,flags, regexes,
            containsLength)
-       val exploration2 =
-         Exploration.lazyExp(funApps, intFunApps, concreteWords,"tmp2.txt","-I", regexes,
-           containsLength)
-       val t1 = new Example[Option[Map[Term, Seq[Int]]]](exploration1.findModel)
-       val t2 = new Example[Option[Map[Term, Seq[Int]]]](exploration2.findModel)
-       var res : Option[Map[Term, List[Int]]] = None
-       t1.start()
-       t2.start()
-       var notDone = true
-       while(notDone){
-         Thread.sleep(50)
-         if(t1.isDone){
-           t1.getRes() match {
-             case Some(model) => {
-               notDone = false
-               t2.stop()
-               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
-             }
-             case None => {
-               // do nothing
-             }
-           }
-         }
-         if(t2.isDone){
-           t1.stop()
-           t2.getRes() match {
-             case Some(model) => {
-               notDone = false
-               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
-             }
-             case None => {
-               notDone = false
-               res = None
-             }
-           }
-         }
-       }
+//       val exploration2 =
+//         Exploration.lazyExp(funApps, intFunApps, concreteWords,"tmp2.txt","-I", regexes,
+//           containsLength)
+//       val t1 = new Example[Option[Map[Term, Seq[Int]]]](exploration1.findModel)
+//       val t2 = new Example[Option[Map[Term, Seq[Int]]]](exploration2.findModel)
+//       var res : Option[Map[Term, List[Int]]] = None
+//       t1.start()
+//       t2.start()
+//       var notDone = true
+//       while(notDone){
+//         Thread.sleep(5)
+//         if(t1.isDone){
+//           t1.getRes() match {
+//             case Some(model) => {
+//               notDone = false
+//               t2.interrupt()
+//               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
+//             }
+//             case None => {
+//               // do nothing
+//             }
+//           }
+//         }
+//         if(t2.isDone){
+//           t1.interrupt()
+//           t2.getRes() match {
+//             case Some(model) => {
+//               notDone = false
+//               res = Some((model mapValues (_.toList)) ++ (concreteWords mapValues (_.toList)))
+//             }
+//             case None => {
+//               notDone = false
+//               res = None
+//             }
+//           }
+//         }
+//       }
 //       t1.getRes() match {
 //         case Some(model) => {
 //           if (t2.isAlive) {
@@ -444,12 +443,12 @@ class PrepropSolver {
 //           }
 //         }
 //       }
-     res
-//     exploration1.findModel match {
-//       case Some(model) => Some((model mapValues (_.toList)) ++
-//         (concreteWords mapValues (_.toList)))
-//       case None => None
-//     }
+//     res
+     exploration1.findModel match {
+       case Some(model) => Some((model mapValues (_.toList)) ++
+         (concreteWords mapValues (_.toList)))
+       case None => None
+     }
     
   }
 

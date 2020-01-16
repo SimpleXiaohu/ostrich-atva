@@ -27,13 +27,14 @@ import strsolver.preprop.RRFunsToTransducer
 
 import scala.collection.mutable.ArrayBuffer
 
+
 object SMTLIBMain {
 
   class MainException(msg : String) extends Exception(msg)
   object TimeoutException extends MainException("timeout")
   object StoppedException extends MainException("stopped")
 
-  def doMain(args: Array[String]) : Unit = try {
+  def doMain(args: Array[String], flags:Flags) : String = try {
     val filenames = new ArrayBuffer[String]
     var timeout : Option[Long] = None
     var model = false
@@ -41,22 +42,24 @@ object SMTLIBMain {
 
     for (str <- args) str match {
       case CmdlParser.ValueOpt("strategy", value) =>{
-        Flags.strategy = value
+        flags.strategy = value
+      }
+      case CmdlParser.ValueOpt("tmpfile", value) =>{
+        flags.tmpFileName = value
       }
       case CmdlParser.ValueOpt("window", value) => {
-
-        Flags.windowSize = value
+        flags.windowSize = value
       }
       case CmdlParser.ValueOpt("timeout", value) =>
         timeout = Some(value.toLong * 1000)
       case CmdlParser.ValueOpt("nuxmvtime", value) =>
-        Flags.nuxmvTime = value
+        flags.nuxmvTime = value
       case CmdlParser.Opt("model", value) =>
         model = value
       case CmdlParser.Opt("assert", value) =>
         assertions = value
       case CmdlParser.Opt("useparikh", value) =>
-        Flags.useParikh = value
+        flags.useParikh = value
       case str =>
         filenames += str
     }
@@ -83,7 +86,6 @@ object SMTLIBMain {
     Console.err.println("Reading file " + fileName + " ...")
 
     val reader = new SMTReader(fileName)
-    val bitwidth = reader.bitwidth
     if (reader.includesGetModel)
       model = true
 
@@ -105,74 +107,57 @@ object SMTLIBMain {
      if ((TheoryRegistry lookupSymbol f).isEmpty) {
        RRFunsToTransducer.addRel2Fun(p, f)
      }
+    val stringTheory = new StringTheory(flags)
 
     val formulaWithoutQuans = SMTReader.eliminateUniQuantifiers(formula)
-    val intFormula = StringTheoryTranslator(formulaWithoutQuans,
-      reader.wordConstants)
 
+    val intFormula = StringTheoryTranslator(formulaWithoutQuans,
+      reader.wordConstants,stringTheory)
     ap.util.Timer.reset
-    val p = SimpleAPI
     SimpleAPI.withProver(enableAssert = assertions) { p =>
       import SimpleAPI._
-      import p._
       // import strsolver.preprop.StoreLC
 
-      try {
-        addTheory(StringTheory)
-        addConstantsRaw(SymbolCollector constantsSorted intFormula)
-        addRelations(for (p <- signature.order.orderedPredicates.toSeq sortBy (_.name);
-                          if ((TheoryRegistry lookupSymbol p).isEmpty))
-                     yield p)
+      import p._
+      addTheory(stringTheory)
+      addConstantsRaw(SymbolCollector constantsSorted intFormula)
+      addRelations(for (p <- signature.order.orderedPredicates.toSeq sortBy (_.name);
+                        if ((TheoryRegistry lookupSymbol p).isEmpty))
+                   yield p)
 
-        ??(intFormula)
+      ??(intFormula)
 
 //debug----------------
-        Console.err.println
-        val res = {
-         checkSat(false)
-         while (getStatus(100) == ProverStatus.Running)
-           timeoutChecker()
-          ???
-        }
-        res match {
-          case ProverStatus.Valid => println("unsat")
-          case ProverStatus.Inconclusive => println("unknown")
-          case ProverStatus.OutOfMemory => println("OOM")
-          case ProverStatus.Invalid => {
-            println("sat")
-          }
-        }
-      println("get time:")
-      Console.err.println(ap.util.Timer)
+      Console.err.println
+      val res = {
+       checkSat(false)
+       while (getStatus(100) == ProverStatus.Running)
+         timeoutChecker()
+        ???
       }
-      finally {
-        // Make sure that the prover actually stops. If stopping takes
-        // too long, kill the whole process
-        stop(false)
-        if (getStatus(100) == ProverStatus.Running) {
-          println("timeout")
-          println("get time:")
-          Console.err.println(ap.util.Timer)
-          System exit 1
+      res match {
+        case ProverStatus.Valid => /*println("unsat")*/ "unsat"
+        case ProverStatus.Inconclusive => /*println("unknown")*/ "unknown"
+        case ProverStatus.OutOfMemory => /*println("OOM")*/ "OOM"
+        case ProverStatus.Invalid => {
+          /*println("sat")*/ "sat"
         }
       }
     }
   } catch {
     case t@(TimeoutException) => {
-      println("get time:")
-      Console.err.println(ap.util.Timer)
-      println("timeout")
-      System exit 1
+      "timeout"
     }
     case t : Throwable => {
       println("(error \"" + t.getMessage + "\")")
       t.printStackTrace
-      System exit 1
+      sys.exit(0)
     }
   }
 
   def main(args: Array[String]) : Unit = {
-    doMain(args)
+    val flag = new Flags
+    println(doMain(args, flag))
   }
 
 }

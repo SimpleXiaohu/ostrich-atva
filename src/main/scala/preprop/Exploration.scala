@@ -47,7 +47,8 @@ object Exploration {
     /**
      * Add aut to constraintsSet for backjump cut
      */
-    def addAut(aut : Automaton)  
+    def addAut(aut : Automaton) : Unit
+
     /**
      * Add new automata to the store, return a sequence of term constraints
      * in case the asserted constraints have become inconsistent
@@ -86,21 +87,20 @@ object Exploration {
               // huzi add 
               intFunApps : Seq[(PreOp, Seq[Term], Term)],
               concreteValues : MHashMap[Term, Seq[Int]],
-              filename : String,
-              strategy : String,
+              flags: Flags,
               // huzi add
               initialConstraints : Seq[(Term, Automaton)],
               strictLengths : Boolean) : Exploration =
-    new LazyExploration(funApps, intFunApps, concreteValues, filename, strategy, initialConstraints,
+    new LazyExploration(funApps, intFunApps, concreteValues, flags, initialConstraints,
                         strictLengths)
 
   private case class FoundModel(model : Map[Term, Seq[Int]]) extends Exception
 
 
   def measure[A](op : String)(comp : => A) : A =
-    if (Flags.measuretime)
-     ap.util.Timer.measure(op)(comp)
-    else
+//    if (Flags.measuretime)
+//     ap.util.Timer.measure(op)(comp)
+//    else
        comp
 }
 
@@ -113,9 +113,8 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
                            // huzi add 
                            val intFunApps : Seq[(PreOp, Seq[Term], Term)],
                            val concreteValues : MHashMap[Term, Seq[Int]],
-                           val filename : String,
-                           val strategy : String,
-                           // huzi add 
+                           val flags: Flags,
+                           // huzi add
                            val initialConstraints : Seq[(Term, Automaton)],
                            strictLengths : Boolean) {
 
@@ -190,7 +189,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 //      if (ops.size > 1  && !(concreteValues contains t)) {
       printf("Mutiple definitions found for "+t+"\n")
       printf("unknow\n")
-      System.exit(1)
+      System.exit(0)
     }
 
 //debug----------------
@@ -276,17 +275,17 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
 
     try {
-      if(Flags.useParikh)
+      if(flags.useParikh)
         dfExploreComplete(funAppList)
       else{
         dfExploreHeuri(funAppList)
       }
-      if(Flags.nuxmvTimeout){
+      if(flags.nuxmvTimeout){
         println("unknow")
-        System.exit(1)
+        System.exit(0)
       }
 //      println("unsat")
-//      System.exit(1)
+//      System.exit(0)
       None
     } catch {
       case FoundModel(model) => Some(model)
@@ -309,8 +308,8 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     }
   }
 
-  private def printIntConstraint(atomAuts : Seq[ArrayBuffer[BricsAutomaton]]):Unit = {
-    val out = new PrintWriter(new FileWriter(filename))
+  private def printIntConstraint(atomAuts : Seq[Seq[BricsAutomaton]]):Unit = {
+    val out = new PrintWriter(new FileWriter(flags.tmpFileName))
     val constantTermSet = new MHashSet[ConstantTerm]()
     constantTermSet ++= SymbolCollector constantsSorted Internal2InputAbsy(IntConstraintStore())
     for(i <- 0 to LCStack.size-1) {
@@ -323,7 +322,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
 
     val notDeclare = getNotDeclare(atomAuts)
     out.print("declare: ")
-    out.println(constantTermSet filterNot notDeclare)
+    out.println((constantTermSet filterNot notDeclare).map(_.toString).toSet)
     out.println("#intconstraints:")
     // input int
     if(IntConstraintStore().toString == "true")
@@ -349,8 +348,12 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       .map{case a => a.map{case TermConstraint(_,aut)=>AtomicStateAutomatonAdapter.intern(aut).asInstanceOf[BricsAutomaton]}}
       .toSeq
   }
-  private  def printAtomAuts(atomAuts : Seq[ArrayBuffer[BricsAutomaton]]) = {
-    val out = new PrintWriter(new FileWriter(filename, true))
+  /**
+   * get optimal auts
+   */
+  def  getOptimalAuts(oldAuts: Seq[BricsAutomaton]) : List[BricsAutomaton]
+  private  def printAtomAuts(atomAuts : Seq[Seq[BricsAutomaton]]) = {
+    val out = new PrintWriter(new FileWriter(flags.tmpFileName, true))
     atomAuts.foreach{
       case auts => {
         out.println("$")
@@ -402,7 +405,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
     (auts.map{aut => aut.parikhImage}).toList
   }
 
-  private def getNotDeclare(seq: Seq[ArrayBuffer[BricsAutomaton]]) = {
+  private def getNotDeclare(seq: Seq[Seq[BricsAutomaton]]) = {
     val res = new MHashSet[ConstantTerm]()
     seq.foreach(
       _.foreach{
@@ -417,10 +420,10 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
   def nuxmvCompute() : Int = {
     var res = 0
     var str = ""
-    if(strategy == "-I")
-      str = Seq("./a", strategy, filename, Flags.nuxmvTime, "0") .!!
+    if(flags.strategy == "-I")
+      str = Seq("./a", flags.strategy, flags.tmpFileName, flags.nuxmvTime, "0") .!!
     else 
-      str = Seq("./a", strategy, filename, Flags.nuxmvTime,Flags.windowSize) .!!
+      str = Seq("./a", flags.strategy, flags.tmpFileName, flags.nuxmvTime,flags.windowSize) .!!
     print(str)
     if(!str.endsWith("\n0\n"))
       // timeout
@@ -463,17 +466,18 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
       }
 
       val atomAuts = getAtomAuts(tmpBuffer)
-      measure("println Int constraints") {printIntConstraint(atomAuts)}
-      measure("println atomAuts"){printAtomAuts(atomAuts)}
+      val optAuts = atomAuts.map(getOptimalAuts(_))
+      measure("println Int constraints") {printIntConstraint(optAuts)}
+      measure("println atomAuts"){printAtomAuts(optAuts)}
       println("nuxmv compute")
       measure("nuxmv"){nuxmvCompute()} match {
         // unsat
         case 0 => List()
-        // sat
+        // satp
         case 1 => throw FoundModel(model.toMap)
         // timeout
         case 2 => {
-          Flags.nuxmvTimeout = true
+          flags.nuxmvTimeout = true
           List()
         }
       }
@@ -766,12 +770,11 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
                       // huzi add 
                       _intFunApps : Seq[(PreOp, Seq[Term], Term)],
                       _concreteValues : MHashMap[Term, Seq[Int]],
-                      _filename : String,
-                      _strategy : String,
+                      _flags : Flags,
                       // huzi add
                       _initialConstraints : Seq[(Term, Automaton)],
                       _strictLengths : Boolean)
-      extends Exploration(_funApps, _intFunApps, _concreteValues, _filename, _strategy, _initialConstraints,
+      extends Exploration(_funApps, _intFunApps, _concreteValues, _flags, _initialConstraints,
                            _strictLengths) {
   import Exploration._
 
@@ -795,7 +798,16 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
   }
 
   protected def newStore(t : Term) : ConstraintStore = new Store(t)
-
+  override def getOptimalAuts(oldAuts: Seq[BricsAutomaton]) : List[BricsAutomaton] = {
+    val res = MHashSet[BricsAutomaton]()
+    val normalAuts = oldAuts.filter(BricsAutomaton.isNormalAut(_))
+    val lenAuts = oldAuts.filter(BricsAutomaton.isLenAut(_))
+    val productAuts = normalAuts++lenAuts
+    if(productAuts.size > 0) res += BricsAutomaton.lenAutsProduct(productAuts, storeLC)
+    val otherAuts = oldAuts.filter(BricsAutomaton.isOtherAut(_))
+    res ++= otherAuts
+    res.toList
+  }
   private class Store(t : Term) extends ConstraintStore {
     //  constraints about t, stored by ArrayBuffer
     private val constraints = new ArrayBuffer[Automaton]
@@ -904,16 +916,11 @@ class LazyExploration(_funApps : Seq[(PreOp, Seq[Term], Term)],
         }
       }
 
+
+
     def getContents : List[Automaton] = {
-      val res = MHashSet[Automaton]()
       val bricsAuts = constraints.map(AtomicStateAutomatonAdapter.intern(_).asInstanceOf[BricsAutomaton])
-      val normalAuts = bricsAuts.filter(BricsAutomaton.isNormalAut(_))
-      val lenAuts = bricsAuts.filter(BricsAutomaton.isLenAut(_))
-      val productAuts = normalAuts++lenAuts
-      if(productAuts.size > 0) res += BricsAutomaton.lenAutsProduct(productAuts, storeLC)
-      val otherAuts = bricsAuts.filter(BricsAutomaton.isOtherAut(_))
-      res ++= otherAuts
-      res.toList
+      getOptimalAuts(bricsAuts)
     }
 //    def getContents : List[Automaton] = {
 //      constraints.toList

@@ -13,6 +13,10 @@ class Example[A](op : => A) extends Thread{
     }catch {
       case e : InterruptedException => {
         println("klllllllllllllllllllllll")
+//        println("klllllllllllllllllllllll")
+//        println("klllllllllllllllllllllll")
+//        println("klllllllllllllllllllllll")
+//        println("klllllllllllllllllllllll")
       }
     }
   }
