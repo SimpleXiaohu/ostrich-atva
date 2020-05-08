@@ -75,8 +75,8 @@ trait Transducer {
    * internalApprox will nest the automaton internalApprox whenever an
    * internal transition should have been output.
    */
-  def postImage[A <: AtomicStateAutomaton]
-               (aut : A, internalApprox : Option[A] = None) : AtomicStateAutomaton
+//  def postImage[A <: AtomicStateAutomaton]
+//               (aut : A, internalApprox : Option[A] = None) : AtomicStateAutomaton
 
   /**
    * Apply the transducer to the input, replacing any internal

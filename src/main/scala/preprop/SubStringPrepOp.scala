@@ -108,8 +108,8 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
           return (Iterator((Seq(res), a)), List())
         }
       }else {
-        val res = getSpecialPre(input_j, input_reslen, input_xlen, resAut)
-        return (res, List())
+       val res = getSpecialPre(input_j, input_reslen, input_xlen, resAut)
+       return (res, List())
       }
     }
     if(i.toString == xlen.toString+" + -1" && j == OneTerm){
@@ -143,7 +143,7 @@ class SubStringPreOp(i : Term, j : Term, xlen : Term, reslen : Term) extends Pre
     builder.setInitialState(initState)
     val resInit = resAut.initialState
     if(resAut.isAccept(resInit))
-    builder.setAccept(initState, true)
+      builder.setAccept(initState, true)
 
 //    var needIFCS : Boolean = false
     // add transition from resAut initState

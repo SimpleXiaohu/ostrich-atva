@@ -323,20 +323,20 @@ class ReplacePreOpTran(tran : Transducer) extends PreOp {
     (res, argumentConstraints)
   }
 
-  override def forwardApprox(argumentConstraints : Seq[Seq[Automaton]]) : Automaton = {
-    val yCons = argumentConstraints(0).map(_ match {
-        case saut : AtomicStateAutomaton => saut
-        case _ => throw new IllegalArgumentException("ConcatPreOp.forwardApprox can only approximate AtomicStateAutomata")
-    })
-    val zCons = argumentConstraints(1).map(_ match {
-        case saut : AtomicStateAutomaton => saut
-        case _ => throw new IllegalArgumentException("ConcatPreOp.forwardApprox can only approximate AtomicStateAutomata")
-    })
-    val yProd = ProductAutomaton(yCons)
-    val zProd = ProductAutomaton(zCons)
-
-    PostImageAutomaton(yProd, tran, Some(zProd))
-  }
+//  override def forwardApprox(argumentConstraints : Seq[Seq[Automaton]]) : Automaton = {
+//    val yCons = argumentConstraints(0).map(_ match {
+//        case saut : AtomicStateAutomaton => saut
+//        case _ => throw new IllegalArgumentException("ConcatPreOp.forwardApprox can only approximate AtomicStateAutomata")
+//    })
+//    val zCons = argumentConstraints(1).map(_ match {
+//        case saut : AtomicStateAutomaton => saut
+//        case _ => throw new IllegalArgumentException("ConcatPreOp.forwardApprox can only approximate AtomicStateAutomata")
+//    })
+//    val yProd = ProductAutomaton(yCons)
+//    val zProd = ProductAutomaton(zCons)
+//
+//    PostImageAutomaton(yProd, tran, Some(zProd))
+//  }
 }
 
 
