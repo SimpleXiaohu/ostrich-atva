@@ -115,7 +115,7 @@ class PrepropSolver(flags: Flags) {
           val anyStrAut2 = BricsAutomaton.makeAnyString
           regexes += ((a.head, BricsAutomaton.concat(List(anyStrAut1, tmpAut, anyStrAut2))))
         } else {
-          println("unknow")
+          println("unknown")
           System.exit(0)
         }
       }
@@ -127,7 +127,7 @@ class PrepropSolver(flags: Flags) {
           val anyStrAut = BricsAutomaton.makeAnyString
           regexes += ((a.last, BricsAutomaton.concat(List(tmpAut, anyStrAut))))
         } else {
-          println("unknow")
+          println("unknown")
           System.exit(0)
         }
       }
@@ -148,7 +148,7 @@ class PrepropSolver(flags: Flags) {
           funApps += ((ReplaceAllPreOpW(b, word), List(a(0), a(2)), a(3)))
         } else {
           printf("can not handle this kind of replace( replacement is not concreteword )\n")
-          printf("unknow\n")
+          printf("unknown\n")
           return Some(Map())
         }
       }
@@ -160,7 +160,7 @@ class PrepropSolver(flags: Flags) {
           funApps += ((ReplacePreOpW(b, word), List(a(0), a(2)), a(3)))
         } else {
           printf("can not handle this kind of replace( replacement is not concreteword )\n")
-          printf("unknow\n")
+          printf("unknown\n")
           return Some(Map())
         }
       }
@@ -173,7 +173,7 @@ class PrepropSolver(flags: Flags) {
               funApps += ((ReplaceAllPreOpW(w, word), List(a(0), a(2)), a(3)))
             } else {
               printf("can not handle this kind of replace( replacement is not concreteword )\n")
-              printf("unknow\n")
+              printf("unknown\n")
               return Some(Map())
             }
           case Right(aut) =>
@@ -183,7 +183,7 @@ class PrepropSolver(flags: Flags) {
               funApps += ((ReplaceAllPreOpW(aut, word), List(a(0), a(2)), a(3)))
             } else {
               printf("can not handle this kind of replace( replacement is not concreteword )\n")
-              printf("unknow\n")
+              printf("unknown\n")
               return Some(Map())
             }
         }
@@ -196,7 +196,7 @@ class PrepropSolver(flags: Flags) {
               funApps += ((ReplacePreOpW(w, word), List(a(0), a(2)), a(3)))
             } else {
               printf("can not handle this kind of replace( replacement is not concreteword )\n")
-              printf("unknow\n")
+              printf("unknown\n")
               return Some(Map())
             }
           case Right(aut) =>
@@ -205,7 +205,7 @@ class PrepropSolver(flags: Flags) {
               funApps += ((ReplacePreOpW(aut, word), List(a(0), a(2)), a(3)))
             } else {
               printf("can not handle this kind of replace( replacement is not concreteword )\n")
-              printf("unknow\n")
+              printf("unknown\n")
               return Some(Map())
             }
         }
@@ -294,7 +294,7 @@ class PrepropSolver(flags: Flags) {
           val anyStrAut2 = BricsAutomaton.makeAnyString
           regexes += ((a.head, !BricsAutomaton.concat(List(anyStrAut1, tmpAut, anyStrAut2))))
         } else {
-          println("unknow")
+          println("unknown")
           System.exit(0)
         }
       }
@@ -306,7 +306,7 @@ class PrepropSolver(flags: Flags) {
           regexes += ((a.last, !BricsAutomaton.concat(List(tmpAut, anyStrAut))))
         } else {
           println("str_prefixof not -----------------concreate word")
-          println("unknow")
+          println("unknown")
           System.exit(0)
         }
       }

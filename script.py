@@ -10,6 +10,7 @@ def execmd(cmd, args, v, pid) :
     r = subprocess.Popen(cmd+args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, preexec_fn=os.setsid)
     pid.append(r.pid)
     info = r.stdout.readlines()
+#    print(info)
     v.append(info[-1])
 
 if __name__== "__main__":
@@ -21,8 +22,8 @@ if __name__== "__main__":
     bmc = manager.list()
     ic3_pid = manager.list()
     bmc_pid = manager.list()
-    cmd1 = "java -jar target/scala-2.11/ostrich-assembly-1.0.jar -window=0 -strategy=-I -tmpfile=tmp1.txt "
-    cmd2 = "java -jar target/scala-2.11/ostrich-assembly-1.0.jar -window=30 -strategy=-F -tmpfile=tmp2.txt "
+    cmd1 = "java -jar ostrich-assembly-1.0.jar -timeout=3 -window=0 -strategy=-I -tmpfile=tmp1.txt "
+    cmd2 = "java -jar ostrich-assembly-1.0.jar -timeout=3 -window=30 -strategy=-F -tmpfile=tmp2.txt "
     p_ic3 = Process(target = execmd, args = (cmd1, sys.argv[1], ic3, ic3_pid))
     p_ic3.daemon = True
     p_bmc = Process(target = execmd, args = (cmd2, sys.argv[1], bmc, bmc_pid))
@@ -32,14 +33,14 @@ if __name__== "__main__":
     while (len(ic3) == 0) & (len(bmc) == 0) :
         pass
     if len(ic3) > 0 :
-        print(ic3[0])
         os.killpg(bmc_pid[0], signal.SIGKILL)
-        p_ic3.join()
+        print(ic3[0])
+        #p_ic3.join()
     elif bmc[0] == 'sat\n' :
-        print(bmc[0])
         os.killpg(ic3_pid[0], signal.SIGKILL)
-        p_bmc.join()
-    elif bmc[0] == 'unsat\n' :
+        print(bmc[0])
+        #p_bmc.join()
+    else:
         while (len(ic3) == 0) :
             pass
         print(ic3[0])

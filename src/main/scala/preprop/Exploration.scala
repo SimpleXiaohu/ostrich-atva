@@ -178,7 +178,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
   for ((ops, t) <- sortedFunApps)
     if (ops.size > 1) {
       printf("Mutiple definitions found for "+t+"\n")
-      printf("unknow\n")
+      printf("unknown\n")
       System.exit(0)
     }
 
@@ -269,7 +269,7 @@ abstract class Exploration(val funApps : Seq[(PreOp, Seq[Term], Term)],
         dfExploreHeuri(funAppList)
       }
       if(flags.nuxmvTimeout){
-        println("unknow")
+        println("unknown")
         System.exit(0)
       }
       None

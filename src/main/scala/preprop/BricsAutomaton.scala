@@ -726,9 +726,6 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
       addEtaMapDefault((s1, l, s2))
     }
   }
-  val debugTransitions = {
-    (for((s1,l,s2) <- this.transitions) yield (s1, l, s2)).toList
-  }
   /**
    * register op:
    */
@@ -757,9 +754,16 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
     }
     res
   }
-
+  def deleteTransition(q1 : BricsAutomaton#State,
+                       label : BricsAutomaton#TLabel,
+                       q2 : BricsAutomaton#State) : Unit = {
+    etaMap -= ((q1, label, q2))
+  }
   def removeDeadTranstions() : Unit = {
-
+    for(((from, label, to),v) <- etaMap){
+      if(!states.toSet.contains(from))
+        deleteTransition(from, label, to)
+    }
   }
 
   /**
@@ -813,7 +817,6 @@ class BricsAutomaton(val underlying : BAutomaton) extends AtomicStateAutomaton {
     while(!worklist.isEmpty) {
       val s = worklist.pop
 
-      val dests = new MHashMap[TLabel, MSet[State]] with MMultiMap[TLabel, State]
 
       for ((to, _) <- outgoingTransitions(s)) {
         if (!seenstates.contains(to)) {
@@ -945,6 +948,8 @@ class BricsAutomatonBuilder
       etaMap += ((q1, (min, max), q2)->vector)
     }
   }
+
+
 
   def outgoingTransitions(q : BricsAutomaton#State)
         : Iterator[(BricsAutomaton#State, BricsAutomaton#TLabel)] =

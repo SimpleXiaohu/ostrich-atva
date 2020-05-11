@@ -579,7 +579,6 @@ object AutomataUtils {
   }
 
 
-// huzi add---------------------------------------------------------------------------------
 def buildEpsilons[State, TLabel](builder : AtomicStateAutomatonBuilder[State, TLabel],
                                    epsilons : MultiMap[State, (State,List[Int])], 
                                    isAddEtaMap : Boolean ) : Unit = {
@@ -599,8 +598,9 @@ def buildEpsilons[State, TLabel](builder : AtomicStateAutomatonBuilder[State, TL
       while (!worklist.isEmpty) {
         val (x, y) = worklist.pop
         for (z <- pairs.getOrElse(y._1, List()); if !closure(x).contains(z)) {
-          closure.addBinding(x, z)
-          worklist.push((x, z))
+          val new_z = (z._1, (z._2 zip y._2).map{case(a,b)=>a+b})   // add vector of y and z
+          closure.addBinding(x, new_z)
+          worklist.push((x, new_z))
         }
       }
 
@@ -611,12 +611,11 @@ def buildEpsilons[State, TLabel](builder : AtomicStateAutomatonBuilder[State, TL
     for ((ps1, ps2s) <- closure; (ps2,v) <- ps2s; if (ps1 != ps2)) {
       if (builder.isAccept(ps2))
         builder.setAccept(ps1, true)
-
       for ((ps3, lbl) <- builder.outgoingTransitions(ps2)) {
         builder.asInstanceOf[BricsAutomatonBuilder]
-        .addTransition(ps1.asInstanceOf[BricsAutomaton#State], 
-                      lbl.asInstanceOf[BricsAutomaton#TLabel], 
-                      ps3.asInstanceOf[BricsAutomaton#State], 
+        .addTransition(ps1.asInstanceOf[BricsAutomaton#State],
+                      lbl.asInstanceOf[BricsAutomaton#TLabel],
+                      ps3.asInstanceOf[BricsAutomaton#State],
                       v)
       }
     }

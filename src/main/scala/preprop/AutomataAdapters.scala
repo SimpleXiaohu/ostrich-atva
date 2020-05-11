@@ -274,13 +274,13 @@ case class PreImageAutomaton[A <: AtomicStateAutomaton]
 /**
  * Case class representation of tran.preImage(aut, internalAut)
  */
-case class PostImageAutomaton[A <: AtomicStateAutomaton]
-                             (inAut : A,
-                              tran : Transducer,
-                              internalAut : Option[A] = None)
-    extends AtomicStateAutomatonAdapter[AtomicStateAutomaton](
-      tran.postImage(inAut, internalAut)
-    ) { }
+// case class PostImageAutomaton[A <: AtomicStateAutomaton]
+//                              (inAut : A,
+//                               tran : Transducer,
+//                               internalAut : Option[A] = None)
+//     extends AtomicStateAutomatonAdapter[AtomicStateAutomaton](
+//       tran.postImage(inAut, internalAut)
+//     ) { }
 
 /**
  * Case class representation of AutomataUtils.reverse

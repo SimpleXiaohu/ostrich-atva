@@ -17,7 +17,7 @@
  */
 
 package strsolver
-
+import java.util.Date
 import ap._
 import ap.parameters.PreprocessingSettings
 import ap.parser._
@@ -146,7 +146,8 @@ object SMTLIBMain {
     }
   } catch {
     case t@(TimeoutException) => {
-      "timeout"
+      println("timeout")
+      sys.exit(0)
     }
     case t : Throwable => {
       println("(error \"" + t.getMessage + "\")")
@@ -157,7 +158,10 @@ object SMTLIBMain {
 
   def main(args: Array[String]) : Unit = {
     val flag = new Flags
+    val startTime : Double = new Date().getTime
     println(doMain(args, flag))
+    val endTime : Double = new Date().getTime
+    println("use "+(endTime-startTime)/1000.0)
   }
 
 }
