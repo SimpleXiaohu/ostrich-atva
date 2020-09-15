@@ -24,4 +24,4 @@ Run the jar with arguement
 
 or (***recommanded***)
 
-`$ **python script.py testfile**`
+`$ python script.py testfile`
