@@ -58,8 +58,8 @@ object SMTLIBMain {
         model = value
       case CmdlParser.Opt("assert", value) =>
         assertions = value
-      case CmdlParser.Opt("useparikh", value) =>
-        flags.useParikh = value
+      case CmdlParser.Opt("useparikh", _) =>
+        flags.useParikh = true
       case str =>
         filenames += str
     }
